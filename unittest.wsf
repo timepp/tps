@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<job id="SCA">
+
+	<script type="text/javascript" src="tps.js" />
+    <script type="text/javascript">
+        var or = {
+            NewSuite: function (text) {
+                WScript.Echo(text);
+            },
+            OnSuccess: function (text) {
+                WScript.Echo("[OK]      " + text);
+            },
+            OnFailure: function (text) {
+                WScript.Echo("[FAIL]    " + text);
+            }
+        };
+        tps.unittest.ResultOutput = or;
+        tps.unittest.RunSelfTest();
+    </script>
+
+</job>

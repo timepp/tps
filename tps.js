@@ -83,12 +83,12 @@ String.prototype.rtrim = function () {
 			var D2 = function (n) { if (n < 10) return "0" + n.toString(); return n.toString(); };
 			for (var i = 0; i < fmt.length; i++) {
 				var c = fmt.charAt(i);
-				if (c == "Y") ret += ct.getFullYear();
-				else if (c == "m") ret += D2(ct.getMonth() + 1);
-				else if (c == "d") ret += D2(ct.getDate());
-				else if (c == "H") ret += D2(ct.getHours());
-				else if (c == "M") ret += D2(ct.getMinutes());
-				else if (c == "S") ret += D2(ct.getSeconds());
+				if (c == "Y") ret += dt.getFullYear();
+				else if (c == "m") ret += D2(dt.getMonth());
+				else if (c == "d") ret += D2(dt.getDate());
+				else if (c == "H") ret += D2(dt.getHours());
+				else if (c == "M") ret += D2(dt.getMinutes());
+				else if (c == "S") ret += D2(dt.getSeconds());
 				else ret += c;
 			}
 			return ret;
@@ -389,4 +389,25 @@ String.prototype.rtrim = function () {
 			return ret;
 		}
 	};
-});
+	tps.unittest = {
+		ResultOutput: {},
+		Expect: function (cond, text) {
+			if (cond) {
+				this.ResultOutput.OnSuccess(text);
+			} else {
+				this.ResultOutput.OnFailure(text);
+			}
+		},
+		NewSuite: function (text) {
+			this.ResultOutput.NewSuite(text);
+		},
+		RunSelfTest: function () {
+			this.NewSuite("工具函数");
+			this.Expect(tps.util.SingleQuote("x") == "'x'", "SingleQuote能正常为单个字符加引号");
+			this.Expect(tps.util.SingleQuote("") == "''", "SingleQuote一个空字符串");
+			this.Expect(tps.util.RemoveQuote("'x'") == "x", "RemoveQuote可以移除引号");
+			this.Expect(tps.util.RemoveQuote("\"'x'\"") == "'x'", "RemoveQuote只移除一层引号");
+			this.Expect(tps.util.FormatDateString(new Date(1999, 2, 10, 10, 20, 23, 0), "Y-m-d H:M:S") == "1999-02-10 10:20:23", "FormatDateString格式化普通时间");
+		}
+	};
+}());
