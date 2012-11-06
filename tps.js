@@ -154,6 +154,9 @@ String.prototype.rtrim = function () {
 				return document.location.pathname;
 			}
 		},
+		GetScriptDir: function () {
+			return tps.file.GetDir(tps.sys.GetScriptPath());
+		},
 		GetSystemEnv: function (vname) {
 			var items = WMI("cimv2").ExecQuery("Select * from Win32_Environment Where Name = '$V'".replace("$V", vname));
 			if (!items || items.Count == 0) return null;
@@ -387,6 +390,9 @@ String.prototype.rtrim = function () {
 				}
 			}
 			return ret;
+		},
+		GetDir: function (path) {
+			return path.replace(/^(.*)[\\/][^\\/]+$/, "$1");
 		}
 	};
 	tps.unittest = {
