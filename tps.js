@@ -68,6 +68,12 @@ String.prototype.rtrim = function () {
 				o[key] = p[key];
 			}
 		},
+		IndexOf: function (arr, x) {
+			for (var i = 0; i < arr.length; i++) {
+				if (arr[i] == x) return i;
+			}
+			return -1;
+		},
 		SubObject: function () {
 			var obj = arguments[0];
 			for (var i = 1; i < arguments.length; i++) {
@@ -260,6 +266,18 @@ String.prototype.rtrim = function () {
 				tbl.deleteRow(0);
 			}
 		},
+		SelectItem: function (select, text, defaultIndex) {
+			if (!defaultIndex) defaultIndex = 0;
+			for (var i = 0; i < select.length; i++) {
+				var opt = select.item(i);
+				if (opt.value == text) {
+					opt.selected = true;
+					return;
+				}
+			}
+			var opt = select.item(defaultIndex);
+			if (opt) opt.selected = true;
+		},
 		AddGradientBK: function (o, c1, c2, tp) {
 			if (c2 == null) c2 = "#FFFFFF";
 			if (tp == null) tp = 1;
@@ -334,6 +352,9 @@ String.prototype.rtrim = function () {
 			stream.Position = 0;
 
 			stream.WriteText(text);
+			try {
+				fso.CreateFolder(tps.file.GetDir(path));
+			} catch (e) { }
 			stream.SaveToFile(path, 2);
 
 			stream.Close();
@@ -360,6 +381,7 @@ String.prototype.rtrim = function () {
 		},
 		WriteTextFileSimple: function (text, filename) {
 			try {
+				fso.CreateFolder(tps.file.GetDir(filename));
 				var ofile = fso.OpenTextFile(filename, ForWriting, true);
 				ofile.Write(text);
 				ofile.Close();
@@ -381,12 +403,18 @@ String.prototype.rtrim = function () {
 			return str;
 		},
 		Glob: function (dir, filter) {
-			var ret = [];
+			var ret = { dirs: [], files: [] };
 			var d = fso.GetFolder(dir);
 			for (var fc = new Enumerator(d.files) ; !fc.atEnd() ; fc.moveNext()) {
 				var f = fc.item();
 				if (!filter || filter.test(f.Name)) {
-					ret.push(dir + "\\" + f.Name);
+					ret.files.push(f.Name);
+				}
+			}
+			for (var fc = new Enumerator(d.SubFolders) ; !fc.atEnd() ; fc.moveNext()) {
+				var f = fc.item();
+				if (!filter || filter.test(f.Name)) {
+					ret.dirs.push(f.Name);
 				}
 			}
 			return ret;
