@@ -382,6 +382,10 @@ String.prototype.rtrim = function () {
 		WriteTextFileSimple: function (text, filename) {
 			try {
 				fso.CreateFolder(tps.file.GetDir(filename));
+			} catch (e) {
+			}
+
+			try {
 				var ofile = fso.OpenTextFile(filename, ForWriting, true);
 				ofile.Write(text);
 				ofile.Close();
@@ -420,7 +424,9 @@ String.prototype.rtrim = function () {
 			return ret;
 		},
 		GetDir: function (path) {
-			return path.replace(/^(.*)[\\/][^\\/]+$/, "$1");
+			var dir = path.replace(/^(.*)[\\/][^\\/]+$/, "$1");
+			if (dir == path) dir = ".";
+			return dir;
 		}
 	};
 	tps.unittest = {
@@ -442,6 +448,13 @@ String.prototype.rtrim = function () {
 			this.Expect(tps.util.RemoveQuote("'x'") == "x", "RemoveQuote可以移除引号");
 			this.Expect(tps.util.RemoveQuote("\"'x'\"") == "'x'", "RemoveQuote只移除一层引号");
 			this.Expect(tps.util.FormatDateString(new Date(1999, 2, 10, 10, 20, 23, 0), "Y-m-d H:M:S") == "1999-02-10 10:20:23", "FormatDateString格式化普通时间");
+
+			this.NewSuite("文件操作");
+			tps.file.WriteTextFileSimple("abcde\ndefgh", "t.txt");
+			this.Expect(tps.file.GetDir("a.txt") == ".", "GetDir只有文件名，返回当前目录");
+			this.Expect(tps.file.GetDir("c:\\a/b\\c.txt/g.t") == "c:\\a/b\\c.txt", "GetDir路径分隔符混合");
+			this.Expect(tps.file.ReadTextFileSimple("t.txt") == "abcde\ndefgh", "读写文本文件");
+			fso.DeleteFile("t.txt");
 		}
 	};
 }());
