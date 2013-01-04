@@ -1,4 +1,12 @@
-﻿if (!this.tps) {
+﻿/*
+	https://github.com/timepp/tps
+	2013.1.4
+
+	tps是一个用于编写本地运行脚本(.wsf, .js, .hta)的js库，封装了WINDOWS本地的一些
+	操作，如文件读写、注册表、访问WMI等等。这些操作是运行于浏览器中的js所不能够做的。
+*/
+
+if (!this.tps) {
 	this.tps = {};
 }
 
