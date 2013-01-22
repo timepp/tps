@@ -435,6 +435,22 @@ String.prototype.rtrim = function () {
 			var dir = path.replace(/^(.*)[\\/][^\\/]+$/, "$1");
 			if (dir == path) dir = ".";
 			return dir;
+		},
+		ZipDir: function (dir, path) {
+			// write header
+			tps.file.WriteTextFileSimple(
+				"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+				path);
+
+			// copy
+			var ns_dst = shellapp.NameSpace(fso.GetAbsolutePathName(path));
+			var ns_src = shellapp.NameSpace(fso.GetAbsolutePathName(dir));
+			ns_dst.CopyHere(ns_src.Items());
+
+			// wait complete
+			while (ns_dst.Items().count < ns_src.Items().count) {
+				WScript.Sleep(1000);
+			}
 		}
 	};
 	tps.unittest = {
