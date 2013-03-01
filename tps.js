@@ -98,7 +98,7 @@ String.prototype.rtrim = function () {
 			for (var i = 0; i < fmt.length; i++) {
 				var c = fmt.charAt(i);
 				if (c == "Y") ret += dt.getFullYear();
-				else if (c == "m") ret += D2(dt.getMonth());
+				else if (c == "m") ret += D2(dt.getMonth() + 1);
 				else if (c == "d") ret += D2(dt.getDate());
 				else if (c == "H") ret += D2(dt.getHours());
 				else if (c == "M") ret += D2(dt.getMinutes());
@@ -106,6 +106,66 @@ String.prototype.rtrim = function () {
 				else ret += c;
 			}
 			return ret;
+		},
+		ParseDateString: function (datestr) {
+			/*
+				绝对时间: now | today | yyyymmdd | yyyymmddHHMMSS
+				相对时间: 绝对时间[+-]number[ymdHMS]
+			*/
+			function ParseAbsDateString(datestr) {
+				if (datestr == "now") {
+					return new Date();
+				}
+				else if (datestr == "today") {
+					var dt = new Date();
+					return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 0, 0, 0, 0);
+				}
+				else {
+					var re_abs = /^(\d\d\d\d)(\d\d)(\d\d)((\d\d)(\d\d)(\d\d))?$/;
+					var m = re_abs.exec(datestr);
+					if (m) {
+						return new Date(m[1], m[2]-1, m[3], m[5], m[6], m[7], 0);
+					}
+				}
+				return new Date();
+			}
+
+			var re_rela = /^(.*)([+-])([0-9]+)([ymdHMS])$/;
+			var m = re_rela.exec(datestr);
+			if (m) {
+				var dtbase = ParseAbsDateString(m[1]);
+				var factor = (m[2] == "+" ? 1 : -1);
+				var n = parseInt(m[3]);
+
+				if (m[4] == "y" || m[4] == 'm') {
+					var dy = dtbase.getFullYear();
+					var dm = dtbase.getMonth();
+					var dd = dtbase.getDate();
+					var dH = dtbase.getHours();
+					var dM = dtbase.getMinutes();
+					var dS = dtbase.getSeconds();
+					if (m[4] == "y") dy += factor * n;
+					else if (m[4] == "m") {
+						dm += factor * n;
+						dy += Math.floor(dm / 12);
+						dm = dm % 12;
+					}
+					return new Date(dy, dm, dd, dH, dM, dS, 0);
+				}
+				else {
+					var ms = dtbase.getTime();
+					switch (m[4]) {
+						case S: n *= 1; break;
+						case M: n *= 60; break;
+						case H: n *= 3600; break;
+						case d: n *= 86400; break;
+					}
+					return new Date(ms + n * factor * 1000);
+				}
+			}
+			else {
+				return ParseAbsDateString(datestr);
+			}
 		},
 		SplitCmdLine: function (cmdline) {
 			args = [];
@@ -436,6 +496,17 @@ String.prototype.rtrim = function () {
 			if (dir == path) dir = ".";
 			return dir;
 		},
+		CreateFromTemplate: function (tfile, ofile, map, encoding) {
+			if (!encoding) encoding = "UTF-8";
+
+			var content = tps.file.ReadTextFile(tfile, encoding);
+			for (var t in map) {
+				var re = new RegExp(t, "g");
+				content = content.replace(re, map[t]);
+			}
+	
+			tps.file.WriteTextFile(content, ofile, encoding);
+		},
 		ZipDir: function (dir, path) {
 			// write header
 			tps.file.WriteTextFileSimple(
@@ -471,7 +542,7 @@ String.prototype.rtrim = function () {
 			this.Expect(tps.util.SingleQuote("") == "''", "SingleQuote一个空字符串");
 			this.Expect(tps.util.RemoveQuote("'x'") == "x", "RemoveQuote可以移除引号");
 			this.Expect(tps.util.RemoveQuote("\"'x'\"") == "'x'", "RemoveQuote只移除一层引号");
-			this.Expect(tps.util.FormatDateString(new Date(1999, 2, 10, 10, 20, 23, 0), "Y-m-d H:M:S") == "1999-02-10 10:20:23", "FormatDateString格式化普通时间");
+			this.Expect(tps.util.FormatDateString(new Date(1999, 2, 10, 10, 20, 23, 0), "Y-m-d H:M:S") == "1999-03-10 10:20:23", "FormatDateString格式化普通时间");
 
 			this.NewSuite("文件操作");
 			tps.file.WriteTextFileSimple("abcde\ndefgh", "t.txt");
@@ -479,6 +550,18 @@ String.prototype.rtrim = function () {
 			this.Expect(tps.file.GetDir("c:\\a/b\\c.txt/g.t") == "c:\\a/b\\c.txt", "GetDir路径分隔符混合");
 			this.Expect(tps.file.ReadTextFileSimple("t.txt") == "abcde\ndefgh", "读写文本文件");
 			fso.DeleteFile("t.txt");
+
+			this.NewSuite("日期");
+			debugger;
+			this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("20120122"), "YmdHMS") == "20120122000000", "正确解析yyyymmdd型日期");
+			this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("20120122122334"), "YmdHMS") == "20120122122334", "正确解析yyyymmddHHMMSS型日期");
+			this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("now"), "YmdHMS") == tps.util.FormatDateString(new Date(), "YmdHMS"), "正确解析'now'");
+			this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("today"), "YmdHMS") == tps.util.FormatDateString(new Date(), "Ymd") + "000000", "正确解析'today'");
+			this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("20120222+1m"), "YmdHMS") == "20120322000000", "正确解析相对日期:月份1");
+			this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("20120222-121m"), "YmdHMS") == "20020122000000", "正确解析相对日期:月份2");
+			this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("20120222+121m"), "YmdHMS") == "20220322000000", "正确解析相对日期:月份3");
+			this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("20120222122334+15y"), "YmdHMS") == "20270222122334", "正确解析相对日期:年");
+
 		}
 	};
 }());
