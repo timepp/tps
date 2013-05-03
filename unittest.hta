@@ -68,7 +68,7 @@
 
 			function Init() {
 			    ro.resultarea = $("testresult");
-
+				StartTest();
 			}
 			function StartTest() {
 			    ro.resultarea.innerHTML = "";
@@ -81,7 +81,7 @@
 		</script>
 	</head>
 	<body onload="Init()" onkeydown="if (event.keyCode == 27) window.close()">
-		<button onclick="StartTest()">运行测试</button>
+		要重新运行测试, 请刷新页面
 		<hr />
 		<div id="testresult"></div>
 	</body>
