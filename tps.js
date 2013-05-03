@@ -61,6 +61,12 @@ String.prototype.rtrim = function () {
 		return REG().ExecMethod_(func.Name, param);
 	}
 
+	// tps.util ============================================================================================================================
+	// tps.util ============================================================================================================================
+	// tps.util ============================================================================================================================
+	// tps.util ============================================================================================================================
+	// tps.util ============================================================================================================================
+
 	tps.util = {
 		SingleQuote: function (str) {
 			return "'" + str + "'";
@@ -155,10 +161,10 @@ String.prototype.rtrim = function () {
 				else {
 					var ms = dtbase.getTime();
 					switch (m[4]) {
-						case S: n *= 1; break;
-						case M: n *= 60; break;
-						case H: n *= 3600; break;
-						case d: n *= 86400; break;
+						case "S": n *= 1; break;
+						case "M": n *= 60; break;
+						case "H": n *= 3600; break;
+						case "d": n *= 86400; break;
 					}
 					return new Date(ms + n * factor * 1000);
 				}
@@ -391,6 +397,12 @@ String.prototype.rtrim = function () {
 				}
 			}
 			return html;
+		},
+		HtmlCode_Span: function (text, className) {
+			if (className)
+				return '<span class="' + className + '">' + tps.ui.PlainTextToHTML(text) + '</span>';
+			else
+				return '<span>' + tps.ui.PlainTextToHTML(text) + '</span>';
 		}
 	};
 
