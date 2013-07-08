@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<job id="run">
+    <script language="JScript" src="../tps.js"></script>
+    <script language="javascript">
+        var count = 1;
+
+        function RunCmd(cmdline) {
+            var realcmd = cmdline.replace(/CNT/g, count);
+            WScript.Echo("RUN:[" + realcmd + "]");
+            shell.Run(realcmd);
+            count++;
+        }
+
+        var cmdline = tps.util.RemoveQuote(WScript.Arguments(0));
+        cmdline = cmdline.replace(/'/g, "\"");
+        var intervalL = parseInt(WScript.Arguments(1));
+        var intervalH = parseInt(WScript.Arguments(2));
+        
+        RunCmd(cmdline);
+
+        while (true) {
+            var interval = Math.floor((intervalH - intervalL) * Math.random()) + intervalL;
+            WScript.Echo("Wait " + interval + " seconds...");
+            WScript.Sleep(interval * 1000);
+            RunCmd(cmdline);
+        }
+
+    </script>
+</job>
