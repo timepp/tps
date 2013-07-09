@@ -68,36 +68,40 @@ String.prototype.rtrim = function () {
 	// tps.util ============================================================================================================================
 
 	tps.util = {
-		SingleQuote: function (str) {
-			return "'" + str + "'";
-		},
-		DoubleQuote: function (str) {
-			return '"' + str + '"';
-		},
-		RemoveQuote: function (str) {
-			return str.replace(/^(["'])(.*)\1$/, "$2");
-		},
-		MergeProperty: function (o, p) {
-			for (var key in p) {
-				o[key] = p[key];
-			}
-		},
-		IndexOf: function (arr, x) {
-			for (var i = 0; i < arr.length; i++) {
-				if (arr[i] == x) return i;
-			}
-			return -1;
-		},
-		SubObject: function () {
-			var obj = arguments[0];
-			for (var i = 1; i < arguments.length; i++) {
-				var arg = arguments[i];
-				var pn = arg.replace(/^\[(.*)\]$/, "$1");
-				if (!pn in obj) obj[pn] = (pn == arg ? new Object : new Array);
-				obj = obj[pn];
-			}
-			return obj;
-		},
+	    SingleQuote: function (str) {
+	        return "'" + str + "'";
+	    },
+	    DoubleQuote: function (str) {
+	        return '"' + str + '"';
+	    },
+	    RemoveQuote: function (str) {
+	        return str.replace(/^(["'])(.*)\1$/, "$2");
+	    },
+	    MergeProperty: function (o, p) {
+	        for (var key in p) {
+	            o[key] = p[key];
+	        }
+	    },
+	    IndexOf: function (arr, x) {
+	        for (var i = 0; i < arr.length; i++) {
+	            if (arr[i] == x) return i;
+	        }
+	        return -1;
+	    },
+	    SubObject: function () {
+	        var obj = arguments[0];
+	        for (var i = 1; i < arguments.length; i++) {
+	            var arg = arguments[i];
+	            var pn = arg.replace(/^\[(.*)\]$/, "$1");
+	            if (!(pn in obj)) obj[pn] = (pn == arg ? new Object : new Array);
+	            obj = obj[pn];
+	        }
+	        return obj;
+	    },
+	    Accumulate: function (obj, prop, value) {
+            if (!(prop in obj)) obj[prop] = 0;
+	        obj[prop] += value;
+        },
 		FormatDateString: function (dt, fmt) {
 			var ret = "";
 			var D2 = function (n) { if (n < 10) return "0" + n.toString(); return n.toString(); };
