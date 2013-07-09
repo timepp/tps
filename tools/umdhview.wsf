@@ -1,0 +1,174 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<job id="run">
+    <script language="JScript" src="../tps.js"></script>
+    <script language="javascript"><![CDATA[
+    	// types
+    	// StackFrame: {module, func, offset, source, line}
+    	// Stack: [StackFrame]
+    	// Leak: {allocs, alloc_bytes, stack:Stack, culprit}
+    	// LeakGroup: {allocs, alloc_bytes, leaks:[Leak]}
+
+        // return: [Leak]
+        function ReadLeakFromFile(srcfile, radix) {
+            var rawleaks = [];
+            var reLeakHead1 = /^\+\s*(\S+)\s+\(\s*(\S+)\s*-\s*(\S+)\s*\)\s*(\S+)\s*allocs\s+BackTrace(\S+)\s*$/;
+            var reLeakHead2 = /^\+\s*(\S+)\s+\(\s*(\S+)\s*-\s*(\S+)\s*\)\s*BackTrace(\S+)\s+allocations\s*$/;
+            var reLeakHead3 = /^\-\s*(\S+)\s+\(\s*(\S+)\s*-\s*(\S+)\s*\)\s*(\S+)\s*allocs\s+BackTrace(\S+)\s*$/;
+            var reLeakHead4 = /^\-\s*(\S+)\s+\(\s*(\S+)\s*-\s*(\S+)\s*\)\s*BackTrace(\S+)\s+allocations\s*$/;
+            var reLeakLine1 = /^\s*(\S+)!([^+]+)\+(\S+)\s*\(([^,]+),\s*(\S+)\)\s*$/;
+            var reLeakLine2 = /^\s*(\S+)!([^+]+)\+(\S+)\s*$/;
+            var reLeakLine3 = /^\s*(\S+)!([^+]+)\s*$/;
+            var reLeakLine4 = /^\s*(\S+)\s*$/;
+
+            var f = fso.OpenTextFile(srcfile, 1);
+            var leak;
+            while (!f.AtEndOfStream) {
+                var l = f.ReadLine();
+                var m;
+                if (m = reLeakHead3.exec(l)) {
+	                // currently decreased allocs are not processed
+	                break;
+                }
+                if (m = reLeakHead1.exec(l)) {
+                    if (leak) rawleaks.push(leak);
+                    leak = new Object;
+                    leak.allocs = 0;
+                    leak.stack = new Array;
+                    leak.alloc_bytes = parseInt(m[1], radix);
+                }
+                if (!leak) continue;
+                if (m = reLeakHead2.exec(l)) {
+                    leak.allocs = parseInt(m[1], radix);
+                }
+                else if (m = reLeakLine1.exec(l)) {
+                    leak.stack.push({ module: m[1], func: m[2], offset: m[3], source: m[4], line: m[5] });
+                }
+                else if (m = reLeakLine2.exec(l)) {
+                    leak.stack.push({ module: m[1], func: m[2], offset: m[3], source: "", line: "" });
+                }
+                else if (m = reLeakLine3.exec(l)) {
+                    leak.stack.push({ module: m[1], func: "", offset: m[2], source: "", line: "" });
+                }
+                else if (m = reLeakLine4.exec(l)) {
+                    leak.stack.push({ module: "", func: "", offset: m[1], source: "", line: "" });
+                }
+            }
+            if (leak) rawleaks.push(leak);
+            f.Close();
+            return rawleaks;
+        }
+        
+        // arr: [Leak]
+        function SaveLeakToFile(arr, destfile) {
+            var str = "";
+            for (var i in arr) {
+                var leak = arr[i];
+                str += "===========================================================\r\n";
+                str += "    count: " + leak.allocs + ";   total bytes: " + leak.alloc_bytes + "\r\n";
+                for (var j in leak.stack) {
+                    var frame = leak.stack[j];
+                    str += "    " + frame.module + "!" + frame.func + "+" + frame.offset;
+                    if (frame.source.length > 0) str += " (" + frame.source + ":" + frame.line + " )";
+                    str += "\r\n";
+                }
+                str += "\r\n\r\n";
+            }
+            tps.file.WriteTextFile(str, destfile, "UTF-8");
+        }
+
+        // stack : Stack
+        // return: index
+        function FindCulprit(stack) {
+	        // DEFINATIONS:
+	        // cmodule: very common module, frame of these module wouldn't provide interesting information, for example: ntdll, kernel32
+	        // umodule: module that doesn't belongs to cmodule
+	        // frame types:
+	        // sframe: frame that has real source code
+	        // uframe: frame of umodule
+	        // cframe: frame of cmodule
+	        // ucframe: uframe that doesn't make special call
+	        
+	        // CULPRIT ALGORITHM:
+	        // 1. first sframe
+	        // 2. last ucframe above user32!dispatch
+	        // 3. first uframe
+	        // 4. first frame
+
+	        var special_call = /operator new|alloc|winproc|wndproc|startroutine|ThreadRoutine/i;
+            var first_sframe = -1;
+            var first_uframe = -1;
+            var last_ucframe = -1;
+            var pos_user32_dispatch = -1;
+            var common_module = {"ntdll":1, "kernel32":1, "user32":1, "msvcrt":1, "ole32":1};
+            for (var i in stack) {
+                var frame = stack[i];
+                var module = frame.module.toLowerCase();
+                if (module == "user32" && frame.func.search(/dispatch/i) != -1) {
+	                break;
+	                //if (pos_user32_dispatch == -1) pos_user32_dispatch = i;
+                }
+                if (!(frame.module.toLowerCase() in common_module)) {
+	                if (first_uframe == -1) first_uframe = i;
+                    if (pos_user32_dispatch == -1) {
+	                    if (frame.func.search(special_call) == -1) last_ucframe = i;
+                    }
+                    if (frame.source != "" && frame.source.search(/enhancedupp/i) != -1) {
+                        if (first_sframe == -1) first_sframe = i;
+                    }
+                }
+            }
+            
+            if (first_sframe != -1) return first_sframe;
+            if (last_ucframe != -1) return last_ucframe;
+            if (first_uframe != -1) return first_uframe;
+            return 0;
+        }
+
+        function D10(n) {
+            var str = n.toString();
+            while (str.length < 10) str = "0" + str;
+            return str;
+        }
+
+        var scriptdir = tps.sys.GetScriptDir();
+        var configfile = scriptdir + "\\" + "umdhview.config.js";
+        eval(tps.file.ReadTextFile(configfile, "UTF-8"));
+
+        var srcfile = WScript.Arguments(0);
+        var rawleaks = ReadLeakFromFile(srcfile, 16);
+
+        // culprit
+        for (var i in rawleaks) {
+            rawleaks[i].culprit = FindCulprit(rawleaks[i].stack);
+        }
+        
+        // group by culprit
+        // leaks_by_culprit : {framestr: LeakGroup}
+        var leaks_by_culprit = {};
+        for (var i in rawleaks) {
+	        var leak = rawleaks[i];
+            var frame = leak.stack[leak.culprit];
+            var framestr = frame.module + "!" + frame.func + "+" + frame.offset;
+            var leakgroup = tps.util.SubObject(leaks_by_culprit, framestr);
+            tps.util.Accumulate(leakgroup, "allocs", leak.allocs);
+            tps.util.Accumulate(leakgroup, "alloc_bytes", leak.alloc_bytes);
+            tps.util.SubObject(leakgroup, "[leaks]").push(leak);
+        }
+
+        // output to separate files
+        var srcdir = tps.file.GetDir(srcfile);
+        var resultdir = srcfile + ".result";
+        try {
+            fso.DeleteFolder(resultdir, true);
+        } catch (x) {}
+        WScript.Sleep(1000);
+        var dir = fso.CreateFolder(resultdir);
+        for (var framestr in leaks_by_culprit) {
+            var leakgroup = leaks_by_culprit[framestr];
+            var resultfile = resultdir + "\\" + D10(leakgroup.allocs) + "_" + leakgroup.alloc_bytes + "_" + framestr + ".txt";
+            resultfile = resultfile.replace(/[:<>]/g, "-");
+            SaveLeakToFile(leakgroup.leaks, resultfile);
+        }
+    ]]>
+    </script>
+</job>

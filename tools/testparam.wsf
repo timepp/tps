@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<job id="run">
+    <script language="JScript" src="../tps.js"></script>
+    <script language="javascript"><![CDATA[
+
+		var len = WScript.Arguments.length;
+		WScript.Echo("argument count:" + len);
+		for (var i = 0; i < len; i++){
+			WScript.Echo("arg" + i + ":[" + WScript.Arguments(i) + "]");
+		}
+
+	]]>
+    </script>
+</job>
