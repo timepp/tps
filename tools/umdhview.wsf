@@ -1,12 +1,105 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
-<job id="run">
+<job id="umdhview">
     <script language="JScript" src="../tps.js"></script>
     <script language="javascript"><![CDATA[
-    	// types
-    	// StackFrame: {module, func, offset, source, line}
-    	// Stack: [StackFrame]
-    	// Leak: {allocs, alloc_bytes, stack:Stack, culprit}
-    	// LeakGroup: {allocs, alloc_bytes, leaks:[Leak]}
+        // TYPES:
+        // StackFrame: {module, func, offset, source, line}
+        // Stack: [StackFrame]
+        // Leak: {allocs, alloc_bytes, stack:Stack, culprit_position}
+        // LeakGroup (leaks that have same property) : {property, leaks:[Leak]}
+
+        var usage = "" +
+            "umdhview: UMDH diff result viewer." +"\n"+
+            "umdhview group leaks by 'culprit-frame', then output highly readable summary" +"\n"+
+            "information about culprits." +"\n"+
+            "" +"\n"+
+            "usage: cscript.exe umdhview.wsf [/D] [/S:number] UMDH_diff_result_file" +"\n"+
+            "" +"\n"+
+            "    /D tell umdhview to dump rearranged leaks." +"\n"+
+            "       rearranged leaks are saved to one directory named <srcfile>.result," +"\n"+
+            "       each file for one culprit." +"\n"+
+            "" +"\n"+
+            "    /S:<number> tell umdhview to hide culprit which cause leaks less than <number>" +"\n"+
+            "       for example: /S:100" +"\n"+
+            "       The default value is 10" +"\n"+
+            "" +"\n"+
+            "exit code:" +"\n"+
+            "    0:  (clean run) no culprit causes >= <number> leaks" +"\n"+
+            "    >0: the number of culprits which causes >= <number> leaks" +"\n"+
+            "";
+
+        // settings that can be overrided by config.js
+        var IsMySource = function(source) {
+            // return source.search(/enhancedupp/i) != -1;
+            return true;
+        }
+
+        var scriptdir = tps.sys.GetScriptDir();
+        var configfile = scriptdir + "\\" + "umdhview.config.js";
+        if (fso.FileExists(configfile)) {
+            WScript.Echo("default settings are overrided by:");
+            WScript.Echo(configfile);
+            WScript.Echo("");
+            eval(tps.file.ReadTextFile(configfile, "UTF-8"));
+        }
+        
+        if (WScript.Arguments.UnNamed.length != 1) {
+            WScript.Echo(usage);
+            WScript.Quit(-1);
+        }
+
+        var srcfile = WScript.Arguments.UnNamed(0);
+        var rawleaks = ReadLeakFromFile(srcfile, 16);
+
+        for (var i in rawleaks) {
+            rawleaks[i].culprit_position = FindCulprit(rawleaks[i].stack);
+        }
+        
+        // leaks_by_culprit : {culpritstr: LeakGroup}
+        var m = tps.util.Group(rawleaks, function(leak) { return GetFrameString(leak.stack[leak.culprit_position]); });
+        var leakgroups_by_culprit = [];
+        for (var prop in m) {
+            var leaks = m[prop];
+            var total_allocs = tps.util.Accumulate(leaks, "allocs");
+            var total_alloc_bytes = tps.util.Accumulate(leaks, "alloc_bytes");
+            var property = PaddingLeft(total_allocs, 10, " ") + " " + PaddingLeft(total_alloc_bytes, 10, " ") + " " + prop;
+            leakgroups_by_culprit.push({"property":property, "leaks":m[prop]});
+        }
+
+        if (WScript.Arguments.Named.Exists("D")) {
+            DumpLeakGroups(leakgroups_by_culprit, srcfile + ".result");
+        }
+
+        // sort leakgroups by total_allocs in reverse order
+        leakgroups_by_culprit.sort(function(a,b) {return a.property.localeCompare(b.property);});
+        leakgroups_by_culprit.reverse();
+
+        // 
+        var visible_culprits = 0;
+        var threshold = parseInt(WScript.Arguments.Named("S") || "10");
+        WScript.echo("Culprits that cause >= " + threshold + " allocs:\n");
+        WScript.echo(PaddingLeft("allocs", 10, " ") + " " + PaddingLeft("leak bytes", 10, " ") + " " + "culprits");
+        WScript.echo(PaddingLeft("", 10, "=") + " " + PaddingLeft("", 10, "=") + " " + PaddingLeft("", 50, "="));
+        for (var index in leakgroups_by_culprit) {
+            var group = leakgroups_by_culprit[index];
+            if (tps.util.Accumulate(group.leaks, "allocs") >= threshold) {
+                visible_culprits++;
+                WScript.echo(group.property);
+            }
+        }
+        if (visible_culprits != leakgroups_by_culprit.length) {
+            var hidden_culprits = leakgroups_by_culprit.length - visible_culprits;
+            WScript.Echo("(" + hidden_culprits + " culprits are hidden, use /S:1 switch to show all)")
+        }
+
+        WScript.Quit(visible_culprits);
+
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
         // return: [Leak]
         function ReadLeakFromFile(srcfile, radix) {
@@ -26,8 +119,8 @@
                 var l = f.ReadLine();
                 var m;
                 if (m = reLeakHead3.exec(l)) {
-	                // currently decreased allocs are not processed
-	                break;
+                    // currently decreased allocs are not processed
+                    break;
                 }
                 if (m = reLeakHead1.exec(l)) {
                     if (leak) rawleaks.push(leak);
@@ -58,17 +151,18 @@
             return rawleaks;
         }
         
-        // arr: [Leak]
-        function SaveLeakToFile(arr, destfile) {
+        // leaks: [Leak]
+        function SaveLeakToFile(leaks, destfile) {
             var str = "";
-            for (var i in arr) {
-                var leak = arr[i];
+            for (var i in leaks) {
+                var leak = leaks[i];
                 str += "===========================================================\r\n";
                 str += "    count: " + leak.allocs + ";   total bytes: " + leak.alloc_bytes + "\r\n";
                 for (var j in leak.stack) {
                     var frame = leak.stack[j];
-                    str += "    " + frame.module + "!" + frame.func + "+" + frame.offset;
-                    if (frame.source.length > 0) str += " (" + frame.source + ":" + frame.line + " )";
+                    str += j == leak.culprit_position ? "*" : " ";
+                    str += "   " + frame.module + "!" + frame.func + "+" + frame.offset;
+                    if (frame.source.length > 0) str += " (" + frame.source + ":" + frame.line + ")";
                     str += "\r\n";
                 }
                 str += "\r\n\r\n";
@@ -79,40 +173,40 @@
         // stack : Stack
         // return: index
         function FindCulprit(stack) {
-	        // DEFINATIONS:
-	        // cmodule: very common module, frame of these module wouldn't provide interesting information, for example: ntdll, kernel32
-	        // umodule: module that doesn't belongs to cmodule
-	        // frame types:
-	        // sframe: frame that has real source code
-	        // uframe: frame of umodule
-	        // cframe: frame of cmodule
-	        // ucframe: uframe that doesn't make special call
-	        
-	        // CULPRIT ALGORITHM:
-	        // 1. first sframe
-	        // 2. last ucframe above user32!dispatch
-	        // 3. first uframe
-	        // 4. first frame
+            // DEFINATIONS:
+            // cmodule: very common module, frame of these module wouldn't provide interesting information, for example: ntdll, kernel32
+            // umodule: module that doesn't belongs to cmodule
+            // uframe:  frame of umodule
+            // cframe:  frame of cmodule
+            // sframe:  frame that has real source code
+            // ucframe: uframe that doesn't make special call
+            
+            // CULPRIT ALGORITHM:
+            // 1. filter out frames below user32!dispatch
+            // 2. select first sframe if exists
+            // 3. select last ucframe if exists
+            // 4. select first uframe if exists
+            // 5. select first frame
 
-	        var special_call = /operator new|alloc|winproc|wndproc|startroutine|ThreadRoutine/i;
+            var special_call = /operator new|alloc|winproc|wndproc|startroutine|ThreadRoutine|ThreadDispatch/i;
             var first_sframe = -1;
             var first_uframe = -1;
             var last_ucframe = -1;
             var pos_user32_dispatch = -1;
-            var common_module = {"ntdll":1, "kernel32":1, "user32":1, "msvcrt":1, "ole32":1};
+            var common_module = {"ntdll":1, "kernel32":1, "user32":1, "msvcrt":1};
             for (var i in stack) {
                 var frame = stack[i];
                 var module = frame.module.toLowerCase();
                 if (module == "user32" && frame.func.search(/dispatch/i) != -1) {
-	                break;
-	                //if (pos_user32_dispatch == -1) pos_user32_dispatch = i;
+                    break;
+                    //if (pos_user32_dispatch == -1) pos_user32_dispatch = i;
                 }
                 if (!(frame.module.toLowerCase() in common_module)) {
-	                if (first_uframe == -1) first_uframe = i;
+                    if (first_uframe == -1) first_uframe = i;
                     if (pos_user32_dispatch == -1) {
-	                    if (frame.func.search(special_call) == -1) last_ucframe = i;
+                        if (frame.func.search(special_call) == -1) last_ucframe = i;
                     }
-                    if (frame.source != "" && frame.source.search(/enhancedupp/i) != -1) {
+                    if (frame.source != "" && frame.func.search(/ATL\:\:/i) == -1 && IsMySource(frame.source)) {
                         if (first_sframe == -1) first_sframe = i;
                     }
                 }
@@ -124,51 +218,45 @@
             return 0;
         }
 
-        function D10(n) {
-            var str = n.toString();
-            while (str.length < 10) str = "0" + str;
+        // Get string representation of frame
+        // frame: StackFrame
+        function GetFrameString(frame) {
+            return frame.module + "!" + frame.func + "+" + frame.offset;
+        }
+
+        // Dump leak groups to disk
+        // groups: [LeakGroup]
+        // dir: directory to dump
+        // NOTE: contents in this directory will be deleted before dump
+        function DumpLeakGroups(groups, dir) {
+            // output to separate files
+            var srcdir = tps.file.GetDir(srcfile);
+            var resultdir = srcfile + ".result";
+            try {
+                fso.DeleteFolder(dir, true);
+            } catch (x) {}
+
+            // avoid "permission denied"
+            WScript.Sleep(500);
+            
+            fso.CreateFolder(dir);
+            for (var index in groups) {
+                var group = groups[index];
+                var resultfile = resultdir + "\\" + tps.file.GetFeasibleFileName(group.property) + ".txt";
+                SaveLeakToFile(group.leaks, resultfile);
+            }
+
+            WScript.Echo("leaks are arranged by culprits and saved to:");
+            WScript.Echo(resultdir);
+            WScript.Echo("");
+        }
+
+        function PaddingLeft(n, l, c) {
+            var str = String(n);
+            while (str.length < l) str = c + str;
             return str;
         }
-
-        var scriptdir = tps.sys.GetScriptDir();
-        var configfile = scriptdir + "\\" + "umdhview.config.js";
-        eval(tps.file.ReadTextFile(configfile, "UTF-8"));
-
-        var srcfile = WScript.Arguments(0);
-        var rawleaks = ReadLeakFromFile(srcfile, 16);
-
-        // culprit
-        for (var i in rawleaks) {
-            rawleaks[i].culprit = FindCulprit(rawleaks[i].stack);
-        }
-        
-        // group by culprit
-        // leaks_by_culprit : {framestr: LeakGroup}
-        var leaks_by_culprit = {};
-        for (var i in rawleaks) {
-	        var leak = rawleaks[i];
-            var frame = leak.stack[leak.culprit];
-            var framestr = frame.module + "!" + frame.func + "+" + frame.offset;
-            var leakgroup = tps.util.SubObject(leaks_by_culprit, framestr);
-            tps.util.Accumulate(leakgroup, "allocs", leak.allocs);
-            tps.util.Accumulate(leakgroup, "alloc_bytes", leak.alloc_bytes);
-            tps.util.SubObject(leakgroup, "[leaks]").push(leak);
-        }
-
-        // output to separate files
-        var srcdir = tps.file.GetDir(srcfile);
-        var resultdir = srcfile + ".result";
-        try {
-            fso.DeleteFolder(resultdir, true);
-        } catch (x) {}
-        WScript.Sleep(1000);
-        var dir = fso.CreateFolder(resultdir);
-        for (var framestr in leaks_by_culprit) {
-            var leakgroup = leaks_by_culprit[framestr];
-            var resultfile = resultdir + "\\" + D10(leakgroup.allocs) + "_" + leakgroup.alloc_bytes + "_" + framestr + ".txt";
-            resultfile = resultfile.replace(/[:<>]/g, "-");
-            SaveLeakToFile(leakgroup.leaks, resultfile);
-        }
+       
     ]]>
     </script>
 </job>
