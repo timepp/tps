@@ -325,6 +325,10 @@ String.prototype.rtrim = function () {
 		IntValueExists: function (root, key, val) {
 			var s = GetIntValue(root, key, val);
 			return s != undefined && s != null;
+		},
+		OpenRegEdit: function (path) {
+			tps.reg.SetStringValue(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Applets\\Regedit", "LastKey", path);
+			shell.Run("regedit.exe");
 		}
 	};
 
