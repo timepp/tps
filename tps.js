@@ -98,9 +98,26 @@ String.prototype.rtrim = function () {
 	        }
 	        return obj;
 	    },
-	    Accumulate: function (obj, prop, value) {
-            if (!(prop in obj)) obj[prop] = 0;
-	        obj[prop] += value;
+	    // group array to map by some properties
+	    // arr: Array of Objects
+	    // hashfunc: map function, translate Object to String
+	    // -> {"hash":[ojbect_has_same_hash]}
+	    Group: function (arr, hashfunc) {
+		    var g = {};
+		    for (var index in arr) {
+			    var obj = arr[index];
+			    var hash = hashfunc(obj);
+			    tps.util.SubObject(g, "[" + hash + "]").push(obj);
+		    }
+		    return g;
+	    },
+	    // accumulate by same property of some objects
+	    Accumulate: function (arr, prop) {
+		    var sum = 0;
+            for (var index in arr) {
+	            sum += arr[index][prop];
+            }
+	        return sum;
         },
 		FormatDateString: function (dt, fmt) {
 			var ret = "";
@@ -327,7 +344,7 @@ String.prototype.rtrim = function () {
 			return s != undefined && s != null;
 		},
 		OpenRegEdit: function (path) {
-			tps.reg.SetStringValue(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Applets\\Regedit", "LastKey", path);
+		    tps.reg.SetStringValue(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Applets\\Regedit", "LastKey", path);
 			shell.Run("regedit.exe");
 		}
 	};
@@ -542,6 +559,20 @@ String.prototype.rtrim = function () {
 			while (ns_dst.Items().count < ns_src.Items().count) {
 				WScript.Sleep(1000);
 			}
+		},
+		// Replace unacceptable chars to acceptable fullwidth forms
+		GetFeasibleFileName: function (name) {
+			var ret = name;
+			ret = ret.replace(/\\/g, "＼");
+			ret = ret.replace(/\|/g, "｜");
+			ret = ret.replace(/\//g, "／");
+			ret = ret.replace(/\</g, "＜");
+			ret = ret.replace(/\>/g, "＞");
+			ret = ret.replace(/\"/g, "＂");
+			ret = ret.replace(/\*/g, "＊");
+			ret = ret.replace(/\?/g, "？");
+			ret = ret.replace(/\:/g, "：");
+			return ret;
 		}
 	};
 	tps.unittest = {
