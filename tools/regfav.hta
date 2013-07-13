@@ -51,20 +51,23 @@
 			    return td;
 			}
 
-			function OnFav(path) {
+			function OnFav() {
 				try {
-					tps.reg.OpenRegEdit(path);
-				} catch(e) {}
+					//debugger;
+					var e = window.event.srcElement;
+					while (e.tagName.toLowerCase() != "tr") e = e.parentNode;
+					tps.reg.OpenRegEdit(e.dataFld);
+				} catch(x) {}
 			}
 
 			function Init() {
 			    for (var name in fav) {
 				    var path = fav[name];
 				    var tr = $("main").insertRow(-1);
-				    var td = tr.insertCell(-1);
-				    td.appendChild(Text(name, "favname"));
-				    tr.insertCell(-1).appendChild(Text(path));
-				    tr.onclick = function () { OnFav(path); }
+				    tr.dataFld = path;
+				    tr.onclick = OnFav;
+				    tr.insertCell(-1).appendChild(Text(name, "favname"));
+				    tr.insertCell(-1).appendChild(Text(path, "favpath"));
 			    }
 			}
 
