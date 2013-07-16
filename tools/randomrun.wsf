@@ -1,29 +1,52 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
 <job id="run">
     <script language="JScript" src="../tps.js"></script>
-    <script language="javascript">
-        var count = 1;
+    <script language="javascript"><![CDATA[
 
-        function RunCmd(cmdline) {
+        var usage = "" +
+            "randomrun: run command periodically" +"\n"+
+            "usage: cscript randomrun.wsf /I:m-n [/min] cmdline" +"\n"+
+            "/I : specify interval, real interval will be randomly selected between m and n" +"\n"+
+            "/min : run minimized " +"\n"+
+            "`CNT' appears in cmdline will be replaced to a increasing number from 1" +"\n"+
+            "if cmdline contails double quote, use single quote instead" +"\n"+
+            "";
+    
+        var count = 1;
+        function RunCmd(cmdline, showstyle) {
             var realcmd = cmdline.replace(/CNT/g, count);
             WScript.Echo("RUN:[" + realcmd + "]");
-            shell.Run(realcmd);
+            shell.Run(realcmd, showstyle);
             count++;
         }
 
-        var cmdline = tps.util.RemoveQuote(WScript.Arguments(0));
+        if (WScript.Arguments.UnNamed.length != 1) {
+            WScript.Echo(usage);
+            WScript.Quit(-1);
+        }
+
+        var cmdline = tps.util.RemoveQuote(WScript.Arguments.UnNamed(0));
         cmdline = cmdline.replace(/'/g, "\"");
-        var intervalL = parseInt(WScript.Arguments(1));
-        var intervalH = parseInt(WScript.Arguments(2));
-        
-        RunCmd(cmdline);
+        var intervalL = 60;
+        var intervalH = 60;
+        if (WScript.Arguments.Named.Exists("I")) {
+            var m = /^(.*)-(.*)$/.exec(WScript.Arguments.Named.Item("I"));
+            if (m) {
+                intervalL = parseInt(m[1]);
+                intervalH = parseInt(m[2]);
+            }
+        }
+
+        var showstyle = WScript.Arguments.Named.Exists("min")? 7 : 5;
+        RunCmd(cmdline, showstyle);
 
         while (true) {
             var interval = Math.floor((intervalH - intervalL) * Math.random()) + intervalL;
             WScript.Echo("Wait " + interval + " seconds...");
             WScript.Sleep(interval * 1000);
-            RunCmd(cmdline);
+            RunCmd(cmdline, showstyle);
         }
-
+        
+    ]]>
     </script>
 </job>
