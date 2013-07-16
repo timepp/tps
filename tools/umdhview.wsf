@@ -33,6 +33,9 @@
             // return source.search(/enhancedupp/i) != -1;
             return true;
         }
+        var IsCulpritIgnored = function(frame) {
+	        return false;
+        }
 
         var scriptdir = tps.sys.GetScriptDir();
         var configfile = scriptdir + "\\" + "umdhview.config.js";
@@ -53,10 +56,11 @@
 
         for (var i in rawleaks) {
             rawleaks[i].culprit_position = FindCulprit(rawleaks[i].stack);
+            rawleaks[i].culprit_frame = rawleaks[i].stack[rawleaks[i].culprit_position];
         }
         
         // leaks_by_culprit : {culpritstr: LeakGroup}
-        var m = tps.util.Group(rawleaks, function(leak) { return GetFrameString(leak.stack[leak.culprit_position]); });
+        var m = tps.util.Group(rawleaks, function(leak) { return GetFrameString(leak.culprit_frame); });
         var leakgroups_by_culprit = [];
         for (var prop in m) {
             var leaks = m[prop];
@@ -82,10 +86,10 @@
         WScript.echo(PaddingLeft("", 10, "=") + " " + PaddingLeft("", 10, "=") + " " + PaddingLeft("", 50, "="));
         for (var index in leakgroups_by_culprit) {
             var group = leakgroups_by_culprit[index];
-            if (tps.util.Accumulate(group.leaks, "allocs") >= threshold) {
-                visible_culprits++;
-                WScript.echo(group.property);
-            }
+            if (IsCulpritIgnored(group.leaks[0].culprit_frame)) continue;
+            if (tps.util.Accumulate(group.leaks, "allocs") < threshold) continue;
+            visible_culprits++;
+            WScript.echo(group.property);
         }
         if (visible_culprits != leakgroups_by_culprit.length) {
             var hidden_culprits = leakgroups_by_culprit.length - visible_culprits;
