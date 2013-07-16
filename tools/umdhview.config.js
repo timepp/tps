@@ -16,5 +16,6 @@ IsMySource = function(sourcefile) {
 // note:    All culprits shall not be ignored unless it's part of caching or it's by design
 //          Any modification of this function should be approved by euppeng@microsoft.com
 IsCulpritIgnored = function(frame) {
+    //if (frame.module.toLowerCase() == "winhttp") return true;
 	return false;
 };
