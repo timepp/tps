@@ -197,7 +197,7 @@
             var first_uframe = -1;
             var last_ucframe = -1;
             var pos_user32_dispatch = -1;
-            var common_module = {"ntdll":1, "kernel32":1, "user32":1, "msvcrt":1};
+            var common_module = {"ntdll":1, "kernel32":1, "user32":1, "msvcrt":1, "kernelbase":1};
             for (var i in stack) {
                 var frame = stack[i];
                 var module = frame.module.toLowerCase();
