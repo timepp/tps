@@ -227,6 +227,15 @@ String.prototype.rtrim = function () {
 				}
 			}
 			return args;
+		}, 
+
+		CreateGUID: function() {
+			return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, 
+				function(c) {
+					var r = Math.random()*16|0, v=c=='x'?r:r&0x3|0x8;
+					return v.toString(16);
+				}
+			)
 		}
 	};
 
@@ -511,22 +520,33 @@ String.prototype.rtrim = function () {
 			stream.Close();
 			return str;
 		},
-		Glob: function (dir, filter) {
-			var ret = { dirs: [], files: [] };
-			var d = fso.GetFolder(dir);
+		// firter: regex for match file or dir
+		// depth: 1 for immediately childs, 0 for fully recursive
+		// returns:
+		// [ subdir1\, subdir1\file1, subdir1\file2, subdir1\subdir2\, subdir1\subdir2\file3, subdir3\file5, file6, ...]
+		Glob: function (dir, filter, depth, arr, subdir) {
+		    if (!arr) arr = [];
+		    if (!subdir) subdir = "";
+		    if (depth == undefined) depth = 0;
+		    depth--;
+			var d = fso.GetFolder(subdir? dir + "\\" + subdir : dir);
 			for (var fc = new Enumerator(d.files) ; !fc.atEnd() ; fc.moveNext()) {
 				var f = fc.item();
 				if (!filter || filter.test(f.Name)) {
-					ret.files.push(f.Name);
+					arr.push(subdir + f.Name);
 				}
 			}
 			for (var fc = new Enumerator(d.SubFolders) ; !fc.atEnd() ; fc.moveNext()) {
 				var f = fc.item();
-				if (!filter || filter.test(f.Name)) {
-					ret.dirs.push(f.Name);
+				//if (!filter || filter.test(f.Name)) {
+				if (true) {
+					arr.push(subdir + f.Name + "\\");
+					if (depth != 0) {
+						tps.file.Glob(dir, filter, depth, arr, subdir + f.Name + "\\");
+					}
 				}
 			}
-			return ret;
+			return arr;
 		},
 		GetDir: function (path) {
 			var dir = path.replace(/^(.*)[\\/][^\\/]+$/, "$1");
