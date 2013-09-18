@@ -632,7 +632,6 @@ String.prototype.rtrim = function () {
 			this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("20120222-121m"), "YmdHMS") == "20020122000000", "正确解析相对日期:月份2");
 			this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("20120222+121m"), "YmdHMS") == "20220322000000", "正确解析相对日期:月份3");
 			this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("20120222122334+15y"), "YmdHMS") == "20270222122334", "正确解析相对日期:年");
-
 		}
 	};
 }());
