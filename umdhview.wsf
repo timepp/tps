@@ -1,7 +1,9 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
 <job id="umdhview">
-    <script language="JScript" src="../tps.js"></script>
-    <script language="javascript"><![CDATA[
+    <script language="JScript" src="tps.js"></script>
+    <script language="javascript">
+        // <![CDATA[
+
         // TYPES:
         // StackFrame: {module, func, offset, source, line}
         // Stack: [StackFrame]
@@ -261,6 +263,6 @@
             return str;
         }
        
-    ]]>
+    // ]]>
     </script>
 </job>

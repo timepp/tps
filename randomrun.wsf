@@ -1,7 +1,8 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
 <job id="run">
-    <script language="JScript" src="../tps.js"></script>
-    <script language="javascript"><![CDATA[
+    <script language="JScript" src="tps.js"></script>
+    <script language="javascript">
+        // <![CDATA[
 
         var usage = "" +
             "randomrun: run command periodically" +"\n"+
@@ -47,6 +48,6 @@
             RunCmd(cmdline, showstyle);
         }
         
-    ]]>
+    // ]]>
     </script>
 </job>
