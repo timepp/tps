@@ -1,16 +1,15 @@
 ﻿/*
-	https://github.com/timepp/tps
-	2013.1.4
+    https://github.com/timepp/tps
+    2013.1.4
 
-	tps是一个用于编写本地运行脚本(.wsf, .js, .hta)的js库，封装了WINDOWS本地的一些
-	操作，如文件读写、注册表、访问WMI等等。这些操作是运行于浏览器中的js所不能够做的。
+    TPS is a javascript library for local scripts(.wsf, .js, .hta).
 */
 
 if (!this.tps) {
     this.tps = {};
 }
 
-// wellknown windows object
+// well-known windows object
 var fso = new ActiveXObject("Scripting.FileSystemObject");
 var shell = new ActiveXObject("WScript.Shell");
 var shellapp = new ActiveXObject("Shell.Application");
@@ -100,13 +99,13 @@ String.prototype.rtrim = function () {
         },
         // group array to map by some properties
         // arr: Array of Objects
-        // hashfunc: map function, translate Object to String
-        // -> {"hash":[ojbect_has_same_hash]}
-        Group: function (arr, hashfunc) {
+        // hash_function: map function, translate Object to String
+        // -> {"hash":[object_has_same_hash]}
+        Group: function (arr, hash_function) {
             var g = {};
             for (var index in arr) {
                 var obj = arr[index];
-                var hash = hashfunc(obj);
+                var hash = hash_function(obj);
                 tps.util.SubObject(g, "[" + hash + "]").push(obj);
             }
             return g;
@@ -136,9 +135,9 @@ String.prototype.rtrim = function () {
         },
         ParseDateString: function (datestr) {
             /*
-				绝对时间: now | today | yyyymmdd | yyyymmddHHMMSS
-				相对时间: 绝对时间[+-]number[ymdHMS]
-			*/
+                absolute time formats: now | today | yyyymmdd | yyyymmddHHMMSS
+                relative time formats: <absolute time format>[+-]number[ymdHMS]
+            */
             function ParseAbsDateString(datestr) {
                 if (datestr == "now") {
                     return new Date();
@@ -205,11 +204,11 @@ String.prototype.rtrim = function () {
         },
 
         /* 参数形式：
-		   --opt=val         设置选项opt值为val
-		   -switch           打开开关switch
-		   target            添加一个target
-		   --                特殊占位符，表明其后的所有参数都做为target
-		*/
+           --opt=val         设置选项opt值为val
+           -switch           打开开关switch
+           target            添加一个target
+           --                特殊占位符，表明其后的所有参数都做为target
+        */
         ParseArgument: function (argv) {
             var args = { _targets: [] };
             for (var i = 0; i < argv.length; i++) {
@@ -231,11 +230,11 @@ String.prototype.rtrim = function () {
 
         CreateGUID: function () {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,
-				function (c) {
-				    var r = Math.random() * 16 | 0, v = c == 'x' ? r : r & 0x3 | 0x8;
-				    return v.toString(16);
-				}
-			)
+                function (c) {
+                    var r = Math.random() * 16 | 0, v = c == 'x' ? r : r & 0x3 | 0x8;
+                    return v.toString(16);
+                }
+            )
         }
     };
 
@@ -281,6 +280,10 @@ String.prototype.rtrim = function () {
             item.Username = login_name;
             item.VariableValue = val;
             item.Put_();
+
+            // Broadcast a "environment change" notification, 
+            // so that processes created by explorer.exe can see the new variable before the next login.
+            tps.sys.RunCommandAndGetResult(tps.sys.GetScriptDir() + "\\tpkit.exe --action=BroadcastEnvironmentChange");
         },
         SetEnv: function (name, val) {
             if (val == null) {
@@ -400,7 +403,7 @@ String.prototype.rtrim = function () {
 
             oSpan = document.createElement("div");
             oSpan.align = "center";
-            oSpan.innerHTML = "<button onclick=\"document.body.removeChild(document.getElementById('div_err'))\">关闭</button>";
+            oSpan.innerHTML = "<button onclick=\"document.body.removeChild(document.getElementById('div_err'))\">Close</button>";
             oDiv.appendChild(oSpan);
             document.body.appendChild(oDiv);
             CenterAbsoluteObject(oDiv);
@@ -508,8 +511,8 @@ String.prototype.rtrim = function () {
             stream.Close();
             return str;
         },
-        // firter: regex for match file or dir
-        // depth: 1 for immediately childs, 0 for fully recursive
+        // filter: regex for match file or dir
+        // depth: 1 for immediately children, 0 for fully recursive
         // returns:
         // [ subdir1\, subdir1\file1, subdir1\file2, subdir1\subdir2\, subdir1\subdir2\file3, subdir3\file5, file6, ...]
         Glob: function (dir, filter, depth, arr, subdir) {
@@ -555,8 +558,8 @@ String.prototype.rtrim = function () {
         ZipDir: function (dir, path) {
             // write header
             tps.file.WriteTextFileSimple(
-				"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-				path);
+                "PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+                path);
 
             // copy
             var ns_dst = shellapp.NameSpace(fso.GetAbsolutePathName(path));
@@ -568,7 +571,7 @@ String.prototype.rtrim = function () {
                 WScript.Sleep(1000);
             }
         },
-        // Replace unacceptable chars to acceptable fullwidth forms
+        // Replace unacceptable chars to acceptable full-width forms
         GetFeasibleFileName: function (name) {
             var ret = name;
             ret = ret.replace(/\\/g, "＼");
@@ -610,10 +613,10 @@ String.prototype.rtrim = function () {
             this.Expect(tps.util.FormatDateString(new Date(1999, 2, 10, 10, 20, 23, 0), "Y-m-d H:M:S") == "1999-03-10 10:20:23", "FormatDateString格式化普通时间");
 
             this.NewSuite("文件操作");
-            tps.file.WriteTextFileSimple("abcde\ndefgh", "t.txt");
+            tps.file.WriteTextFileSimple("ice\fire", "t.txt");
             this.Expect(tps.file.GetDir("a.txt") == ".", "GetDir只有文件名，返回当前目录");
             this.Expect(tps.file.GetDir("c:\\a/b\\c.txt/g.t") == "c:\\a/b\\c.txt", "GetDir路径分隔符混合");
-            this.Expect(tps.file.ReadTextFileSimple("t.txt") == "abcde\ndefgh", "读写文本文件");
+            this.Expect(tps.file.ReadTextFileSimple("t.txt") == "ice\fire", "读写文本文件");
             fso.DeleteFile("t.txt");
 
             this.NewSuite("日期");
