@@ -29,6 +29,19 @@ String.prototype.ltrim = function () {
 String.prototype.rtrim = function () {
     return this.replace(/\s+$/, "");
 };
+String.prototype.lpad = function (ch, l) {
+    var ret = this;
+    while (ret.length < l) ret = ch + ret;
+    return ret;
+};
+String.prototype.rpad = function (ch, l) {
+    var ret = this;
+    while (ret.length < l) ret += ch;
+    return ret;
+};
+String.prototype.icaseEqual = function (str) {
+    return this.toLowerCase() == str.toLowerCase();
+};
 
 (function () {
 
@@ -81,12 +94,6 @@ String.prototype.rtrim = function () {
                 o[key] = p[key];
             }
         },
-        IndexOf: function (arr, x) {
-            for (var i = 0; i < arr.length; i++) {
-                if (arr[i] == x) return i;
-            }
-            return -1;
-        },
         SubObject: function () {
             var obj = arguments[0];
             for (var i = 1; i < arguments.length; i++) {
@@ -96,6 +103,18 @@ String.prototype.rtrim = function () {
                 obj = obj[pn];
             }
             return obj;
+        },
+        IndexOf: function (arr, obj, fromIndex) {
+            if (fromIndex == null) {
+                fromIndex = 0;
+            } else if (fromIndex < 0) {
+                fromIndex = Math.max(0, arr.length + fromIndex);
+            }
+            for (var i = fromIndex, j = arr.length; i < j; i++) {
+                if (arr[i] === obj)
+                    return i;
+            }
+            return -1;
         },
         // group array to map by some properties
         // arr: Array of Objects
@@ -120,7 +139,7 @@ String.prototype.rtrim = function () {
         },
         FormatDateString: function (dt, fmt) {
             var ret = "";
-            var D2 = function (n) { if (n < 10) return "0" + n.toString(); return n.toString(); };
+            var D2 = function (n) { return n.toString().lpad("0", 2); };
             for (var i = 0; i < fmt.length; i++) {
                 var c = fmt.charAt(i);
                 if (c == "Y") ret += dt.getFullYear();
@@ -129,6 +148,7 @@ String.prototype.rtrim = function () {
                 else if (c == "H") ret += D2(dt.getHours());
                 else if (c == "M") ret += D2(dt.getMinutes());
                 else if (c == "S") ret += D2(dt.getSeconds());
+                else if (c == "I") ret += dt.getMilliseconds().toString().lpad('0', 3);
                 else ret += c;
             }
             return ret;
@@ -266,14 +286,21 @@ String.prototype.rtrim = function () {
         GetScriptDir: function () {
             return tps.file.GetDir(tps.sys.GetScriptPath());
         },
-        GetSystemEnv: function (vname) {
+        GetSystemEnv: function (vname, login_name) {
             var items = WMI("cimv2").ExecQuery("Select * from Win32_Environment Where Name = '$V'".replace("$V", vname));
             if (!items || items.Count == 0) return null;
-            var item = new Enumerator(items).item();
-            return item.VariableValue;
+            var itemEnum = new Enumerator(items);
+            for (itemEnum.moveFirst() ; !itemEnum.atEnd() ; itemEnum.moveNext()){
+                var envvar = itemEnum.item();
+                if (envvar.Name.icaseEqual(vname) && (!login_name || login_name == envvar.Username)) {
+                    return envvar.VariableValue;
+                }
+            }
+
+            return null;
         },
         SetSystemEnv: function (vname, val, login_name) {
-            if (login_name == null) login_name = "<SYSTEM>";
+            if (!login_name) login_name = "<SYSTEM>";
 
             var item = WMI("cimv2").Get("Win32_Environment").SpawnInstance_();
             item.Name = vname;
@@ -323,25 +350,77 @@ String.prototype.rtrim = function () {
     };
 
     tps.reg = {
-        GetStringValue: function (root, key, val) {
-            InvokeCommonRegTask("GetStringValue", root, key, val).sValue;
+	    InvokeCommonRegTask: function (cmd, root, key, valname, val) {
+	        var func = REG().Methods_.Item(cmd);
+	        var param = func.InParameters.SpawnInstance_();
+	        param.hDefKey = root;
+	        param.sSubKeyName = key;
+	        try {
+	            param.sValueName = valname;
+	            if (val != null) {
+	                if (typeof (val) == "string") param.sValue = val;
+	                else param.uValue = val;
+	            }
+	        } catch (e) { }
+	        return REG().ExecMethod_(func.Name, param);
+	    },
+		GetStringValue: function (root, key, val) {
+			return tps.reg.InvokeCommonRegTask("GetStringValue", root, key, val).sValue;
         },
         SetStringValue: function (root, key, valname, val) {
-            return InvokeCommonRegTask("SetStringValue", root, key, valname, val);
+		    return tps.reg.InvokeCommonRegTask("SetStringValue", root, key, valname, val);
         },
-        GetIntValue: function (root, key, val) {
-            return InvokeCommonRegTask("GetDWORDValue", root, key, val).uValue;
+		GetIntValue: function (root, key, val) {
+		    return tps.reg.InvokeCommonRegTask("GetDWORDValue", root, key, val).uValue;
         },
         SetIntValue: function (root, key, valname, val) {
-            return InvokeCommonRegTask("SetDWORDValue", root, key, valname, val);
+		    return tps.reg.InvokeCommonRegTask("SetDWORDValue", root, key, valname, val);
         },
-        StringValueExists: function (root, key, val) {
-            var s = GetStringValue(root, key, val);
+		GetBoolValue: function (root, key, val) {
+		    return tps.reg.GetIntValue(root, key, val) > 0 ? true : false;
+		},
+		SetBoolValue: function (root, key, valname, val) {
+		    return tps.reg.SetIntValue(root, key, valname, val ? 1 : 0);
+		},
+		StringValueExists: function (root, key, val) {
+			var s = GetStringValue(root, key, val);
             return s != undefined && s != null;
         },
-        IntValueExists: function (root, key, val) {
-            var s = GetIntValue(root, key, val);
+		IntValueExists: function (root, key, val) {
+			var s = GetIntValue(root, key, val);
             return s != undefined && s != null;
+		},
+		CreateKey: function (root, key) {
+		    return tps.reg.InvokeCommonRegTask("CreateKey", root, key, null, null);
+		},
+		DeleteKey: function (root, key) {
+		    return tps.reg.InvokeCommonRegTask("DeleteKey", root, key, null, null);
+		},
+		EnumValues: function (root, key) {
+		    var s = tps.reg.InvokeCommonRegTask("EnumValues", root, key, null, null);
+		    var ret = [];
+		    try {
+		        ret = s.sNames.toArray();
+		    } catch (e) { }
+		    return ret;
+		},
+		EnumKeys: function (root, key) {
+		    var s = tps.reg.InvokeCommonRegTask("EnumKey", root, key, null, null);
+		    var ret = [];
+		    try {
+		        ret = s.sNames.toArray();
+		    } catch (e) { }
+		    return ret;
+		},
+		BatchGetStringValues: function (root, key, subkeys, valname) {
+		    var keys = tps.reg.EnumKeys(root, key);
+		    var values = [];
+		    if (subkeys == null) subkeys = ""; else subkeys = subkeys + "\\";
+		    for (var i = 0; i < keys.length; i++) {
+		        var val = tps.reg.GetStringValue(root, key + "\\" + keys[i] + "\\" + subkeys, valname);
+		        values.push(val);
+		    }
+		    return values;
         },
         OpenRegEdit: function (path) {
             tps.reg.SetStringValue(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Applets\\Regedit", "LastKey", path);

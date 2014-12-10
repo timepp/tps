@@ -1,4 +1,4 @@
-tps
-===
+tpscript
+========
 
-tps是一个用于HTA和WSF的WINDOWS本地JS脚本的JS库
+tpscript is a set of useful windows scripts plus a general purpose library (tps.js) for windows local scripting.
