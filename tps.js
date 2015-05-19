@@ -719,6 +719,34 @@ String.prototype.icaseEqual = function (str) {
             return null;
         }
     };
+    tps.log = {
+        devices: [],
+        indent: 0,
+        Log: function (level, tag, text) {
+            var dt = new Date();
+            for (var i in this.devices) {
+                this.devices[i].WriteLog(level, tag, dt, this.indent, text);
+            }
+        },
+        Debug: function (text) {
+            tps.log.Log("debug", "", text);
+        },
+        Event: function (text) {
+            tps.log.Log("event", "", text);
+        },
+        Warning: function(text) {
+            tps.log.Log("warning", "", text);
+        },
+        Error: function(text) {
+            tps.log.Log("error", "", text);
+        },
+        Indent: function () {
+            this.indent++;
+        },
+        Unindent: function () {
+            this.indent--;
+        }
+    };
     tps.unittest = {
         ResultOutput: {},
         Expect: function (cond, text) {
