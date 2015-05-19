@@ -356,6 +356,19 @@ String.prototype.icaseEqual = function (str) {
         GetEnv: function (name) {
             return env.Item(name);
         },
+        InPath: function (path) {
+            var paths = tps.sys.GetSystemEnv("path").toLowerCase().split(";");
+            return tps.util.IndexOf(paths, path) != -1;
+        },
+        AddToPath: function (path) {
+            if (!tps.sys.InPath(path)) {
+                var pathval = tps.sys.GetSystemEnv("path");
+                var newpathval = pathval;
+                if (newpathval.slice(-1) != ";") newpathval += ";";
+                newpathval += path;
+                tps.sys.SetSystemEnv("path", newpathval);
+            }
+        },
         RunCommandAndGetResult: function (cmdline, of, ef) {
             var outfile = of ? of : shell.ExpandEnvironmentStrings("%temp%") + "\\" + fso.GetTempName();
             var errfile = ef ? ef : shell.ExpandEnvironmentStrings("%temp%") + "\\" + fso.GetTempName();
@@ -628,12 +641,12 @@ String.prototype.icaseEqual = function (str) {
         },
         ReadBinaryFile: function (filename, pos, len) {
             var stream = new ActiveXObject("ADODB.Stream");
-            //	stream.Type = 1;
+            // stream.Type = 1;
             stream.Open();
             stream.LoadFromFile(filename);
             stream.Position = pos;
             var str = "";
-            //	str = stream.Read(len);
+            // str = stream.Read(len);
             str = stream.ReadText(len);
             stream.Close();
             return str;
@@ -670,6 +683,10 @@ String.prototype.icaseEqual = function (str) {
             var dir = path.replace(/^(.*)[\\/][^\\/]+$/, "$1");
             if (dir == path) dir = ".";
             return dir;
+        },
+        GetFileName: function (path) {
+            var fn = path.replace(/^.*[\\/]([^\\/]+)$/, "$1");
+            return fn;
         },
         CreateFromTemplate: function (tfile, ofile, map, encoding) {
             if (!encoding) encoding = "UTF-8";
@@ -776,6 +793,9 @@ String.prototype.icaseEqual = function (str) {
             this.Expect(tps.file.GetDir("c:\\a/b\\c.txt/g.t") == "c:\\a/b\\c.txt", "GetDir路径分隔符混合");
             this.Expect(tps.file.ReadTextFileSimple("t.txt") == "ice\fire", "读写文本文件");
             fso.DeleteFile("t.txt");
+            this.Expect(tps.file.GetFileName("") == "", "FileName: empty");
+            this.Expect(tps.file.GetFileName("a.txt") == "a.txt", "FileName: only name");
+            this.Expect(tps.file.GetFileName("c:\\bbbc") == "bbbc", "FileName: normal");
 
             this.NewSuite("日期");
             this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("20120122"), "YmdHMS") == "20120122000000", "正确解析yyyymmdd型日期");
