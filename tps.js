@@ -376,77 +376,92 @@ String.prototype.icaseEqual = function (str) {
     };
 
     tps.reg = {
-	    InvokeCommonRegTask: function (cmd, root, key, valname, val) {
-	        var func = REG().Methods_.Item(cmd);
-	        var param = func.InParameters.SpawnInstance_();
-	        param.hDefKey = root;
-	        param.sSubKeyName = key;
-	        try {
-	            param.sValueName = valname;
-	            if (val != null) {
-	                if (typeof (val) == "string") param.sValue = val;
-	                else param.uValue = val;
-	            }
-	        } catch (e) { }
-	        return REG().ExecMethod_(func.Name, param);
-	    },
-		GetStringValue: function (root, key, val) {
-			return tps.reg.InvokeCommonRegTask("GetStringValue", root, key, val).sValue;
+        InvokeCommonRegTask: function (cmd, root, key, valname, val) {
+            var func = REG().Methods_.Item(cmd);
+            var param = func.InParameters.SpawnInstance_();
+            param.hDefKey = root;
+            param.sSubKeyName = key;
+            if (valname != null) {
+                param.sValueName = valname;
+            }
+            if (val != null) {
+                if (typeof (val) == "string") param.sValue = val;
+                else if (val instanceof Array) param.sValue = val;
+                else param.uValue = val;
+            }
+            return REG().ExecMethod_(func.Name, param);
+        },
+        GetStringValue: function (root, key, val) {
+            return tps.reg.InvokeCommonRegTask("GetStringValue", root, key, val).sValue;
+        },
+        GetMultiStringValue: function (root, key, val) {
+            var ret = tps.reg.InvokeCommonRegTask("GetMultiStringValue", root, key, val).sValue;
+            if (ret != null) ret = ret.toArray;
+            return ret;
         },
         SetStringValue: function (root, key, valname, val) {
-		    return tps.reg.InvokeCommonRegTask("SetStringValue", root, key, valname, val);
+            return tps.reg.InvokeCommonRegTask("SetStringValue", root, key, valname, val).ReturnValue;
         },
-		GetIntValue: function (root, key, val) {
-		    return tps.reg.InvokeCommonRegTask("GetDWORDValue", root, key, val).uValue;
+        SetMultiStringValue: function (root, key, valname, val) {
+            return tps.reg.InvokeCommonRegTask("SetMultiStringValue", root, key, valname, val).ReturnValue;
+        },
+        GetIntValue: function (root, key, val) {
+            return tps.reg.InvokeCommonRegTask("GetDWORDValue", root, key, val).uValue;
         },
         SetIntValue: function (root, key, valname, val) {
-		    return tps.reg.InvokeCommonRegTask("SetDWORDValue", root, key, valname, val);
+            return tps.reg.InvokeCommonRegTask("SetDWORDValue", root, key, valname, val).RetrunValue;
         },
-		GetBoolValue: function (root, key, val) {
-		    return tps.reg.GetIntValue(root, key, val) > 0 ? true : false;
-		},
-		SetBoolValue: function (root, key, valname, val) {
-		    return tps.reg.SetIntValue(root, key, valname, val ? 1 : 0);
-		},
-		StringValueExists: function (root, key, val) {
-			var s = GetStringValue(root, key, val);
+        GetBoolValue: function (root, key, val) {
+            return tps.reg.GetIntValue(root, key, val) > 0 ? true : false;
+        },
+        SetBoolValue: function (root, key, valname, val) {
+            return tps.reg.SetIntValue(root, key, valname, val ? 1 : 0);
+        },
+        StringValueExists: function (root, key, val) {
+            var s = GetStringValue(root, key, val);
             return s != undefined && s != null;
         },
-		IntValueExists: function (root, key, val) {
-			var s = GetIntValue(root, key, val);
+        IntValueExists: function (root, key, val) {
+            var s = GetIntValue(root, key, val);
             return s != undefined && s != null;
-		},
-		CreateKey: function (root, key) {
-		    return tps.reg.InvokeCommonRegTask("CreateKey", root, key, null, null);
-		},
-		DeleteKey: function (root, key) {
-		    return tps.reg.InvokeCommonRegTask("DeleteKey", root, key, null, null);
-		},
-		EnumValues: function (root, key) {
-		    var s = tps.reg.InvokeCommonRegTask("EnumValues", root, key, null, null);
-		    var ret = [];
-		    try {
-		        ret = s.sNames.toArray();
-		    } catch (e) { }
-		    return ret;
-		},
-		EnumKeys: function (root, key) {
-		    var s = tps.reg.InvokeCommonRegTask("EnumKey", root, key, null, null);
-		    var ret = [];
-		    try {
-		        ret = s.sNames.toArray();
-		    } catch (e) { }
-		    return ret;
-		},
-		BatchGetStringValues: function (root, key, subkeys, valname) {
-		    var keys = tps.reg.EnumKeys(root, key);
-		    var values = [];
-		    if (subkeys == null) subkeys = ""; else subkeys = subkeys + "\\";
-		    for (var i = 0; i < keys.length; i++) {
-		        var val = tps.reg.GetStringValue(root, key + "\\" + keys[i] + "\\" + subkeys, valname);
-		        values.push(val);
-		    }
-		    return values;
+        },
+        CreateKey: function (root, key) {
+            return tps.reg.InvokeCommonRegTask("CreateKey", root, key, null, null);
+        },
+        DeleteKey: function (root, key) {
+            var subKeys = tps.reg.EnumKeys(root, key);
+            if (subKeys != null) {
+                for (var i in subKeys) {
+                    tps.reg.DeleteKey(root, key + "\\" + subKeys[i]);
+                }
+            }
+            return tps.reg.InvokeCommonRegTask("DeleteKey", root, key, null, null);
+        },
+        EnumValues: function (root, key) {
+            var s = tps.reg.InvokeCommonRegTask("EnumValues", root, key, null, null);
+            var ret = [];
+            try {
+                ret = s.sNames.toArray();
+            } catch (e) { }
+            return ret;
+        },
+        EnumKeys: function (root, key) {
+            var s = tps.reg.InvokeCommonRegTask("EnumKey", root, key, null, null);
+            var ret = null;
+            try {
+                ret = s.sNames.toArray();
+            } catch (e) { }
+            return ret;
+        },
+        BatchGetStringValues: function (root, key, subkeys, valname) {
+            var keys = tps.reg.EnumKeys(root, key);
+            var values = [];
+            if (subkeys == null) subkeys = ""; else subkeys = subkeys + "\\";
+            for (var i = 0; i < keys.length; i++) {
+                var val = tps.reg.GetStringValue(root, key + "\\" + keys[i] + "\\" + subkeys, valname);
+                values.push(val);
+            }
+            return values;
         },
         OpenRegEdit: function (path) {
             tps.reg.SetStringValue(HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Applets\\Regedit", "LastKey", path);
@@ -725,7 +740,6 @@ String.prototype.icaseEqual = function (str) {
             fso.DeleteFile("t.txt");
 
             this.NewSuite("日期");
-            debugger;
             this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("20120122"), "YmdHMS") == "20120122000000", "正确解析yyyymmdd型日期");
             this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("20120122122334"), "YmdHMS") == "20120122122334", "正确解析yyyymmddHHMMSS型日期");
             this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("now"), "YmdHMS") == tps.util.FormatDateString(new Date(), "YmdHMS"), "正确解析'now'");
