@@ -29,6 +29,7 @@
 			}
 		</style>
 		<script language="javascript">
+
 			function $(x) {
 				return document.getElementById(x);
 			}
@@ -77,11 +78,14 @@
 				tps.unittest.ResultOutput = ro;
 				tps.unittest.RunSelfTest();
 			}
+			function Restart(requestAdmin, escapeWOW64) {
+			    tps.sys.RestartHTA(HTA.commandLine, requestAdmin, escapeWOW64);
+			}
 
 		</script>
 	</head>
 	<body onload="Init()" onkeydown="if (event.keyCode == 27) window.close()">
-		要重新运行测试, 请刷新页面
+		<button onclick="Restart(false, true)">restart as 64bit</button>&nbsp;&nbsp;<button onclick="Restart(true, false)">restart as admin</button>
 		<hr />
 		<div id="testresult"></div>
 	</body>

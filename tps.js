@@ -267,6 +267,32 @@ String.prototype.icaseEqual = function (str) {
             }
             return true;
         },
+        RestartHTA: function (cmdline, requestAdmin, escapeWOW64) {
+            var mshta = "mshta.exe";
+            var verb = "open";
+            var needRestart = false;
+            if (escapeWOW64) {
+                var sysnativePath = shell.ExpandEnvironmentStrings("%windir%\\sysnative");
+                if (fso.FolderExists(sysnativePath)) {
+                    mshta = sysnativePath + "\\mshta.exe";
+                    needRestart = true;
+                }
+            }
+            if (requestAdmin) {
+                if (!tps.sys.HasFullPrivilege()) {
+                    verb = "runas";
+                    mshta = "mshta.exe";
+                    needRestart = true;
+                }
+            }
+            if (needRestart) {
+                shellapp.ShellExecute(mshta, cmdline, "", verb, 1);
+                window.close();
+                body.onload = null;
+                return true;
+            }
+            return false;
+        },
         IsAdmin: function () {
             var oNet = new ActiveXObject("WScript.Network");
             var oGroup = GetObject("WinNT://./Administrators");
