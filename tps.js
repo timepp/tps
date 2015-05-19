@@ -255,6 +255,13 @@ String.prototype.icaseEqual = function (str) {
                     return v.toString(16);
                 }
             )
+        },
+        arraysEqual: function (arr1, arr2) {
+            if (arr1.length !== arr2.length) return false;
+            for (var i = arr1.length; i--;) {
+                if (arr1[i] !== arr2[i]) return false;
+            }
+            return true;
         }
     };
 
@@ -731,6 +738,9 @@ String.prototype.icaseEqual = function (str) {
             this.Expect(tps.util.RemoveQuote("'x'") == "x", "RemoveQuote可以移除引号");
             this.Expect(tps.util.RemoveQuote("\"'x'\"") == "'x'", "RemoveQuote只移除一层引号");
             this.Expect(tps.util.FormatDateString(new Date(1999, 2, 10, 10, 20, 23, 0), "Y-m-d H:M:S") == "1999-03-10 10:20:23", "FormatDateString格式化普通时间");
+            this.Expect(tps.util.arraysEqual([1], [1]), "ArrayEqual, 1 element number array");
+            this.Expect(tps.util.arraysEqual([], []), "ArrayEqual, 0 element array");
+            this.Expect(tps.util.arraysEqual(["ab", "c", "de"], ["ab", "c", "de"]), "ArrayEqual, 3 elements string array");
 
             this.NewSuite("文件操作");
             tps.file.WriteTextFileSimple("ice\fire", "t.txt");
@@ -748,6 +758,23 @@ String.prototype.icaseEqual = function (str) {
             this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("20120222-121m"), "YmdHMS") == "20020122000000", "正确解析相对日期:月份2");
             this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("20120222+121m"), "YmdHMS") == "20220322000000", "正确解析相对日期:月份3");
             this.Expect(tps.util.FormatDateString(tps.util.ParseDateString("20120222122334+15y"), "YmdHMS") == "20270222122334", "正确解析相对日期:年");
+
+            this.NewSuite("Registry");
+            var rootKey = "Software\\tps";
+            var key = "Software\\tps\\sub1\\sub2";
+            var multiStringValue = ["12345", "abcde", "xxxyyy"];
+            tps.reg.DeleteKey(HKEY_CURRENT_USER, rootKey);
+            this.Expect(tps.reg.EnumKeys(HKEY_CURRENT_USER, rootKey) == null, "Reg key can be deleted recursively");
+            var ret = tps.reg.SetMultiStringValue(HKEY_CURRENT_USER, key, "values", multiStringValue);
+            this.Expect(ret == 2, "Set value returns 2 when value is not found");
+            tps.reg.CreateKey(HKEY_CURRENT_USER, key);
+            var subKeys = tps.reg.EnumKeys(HKEY_CURRENT_USER, rootKey + "\\sub1");
+            this.Expect(subKeys != null && tps.util.arraysEqual(subKeys, ["sub2"]), "Reg key can be created recursively");
+            // no exception when value exists
+            ret = tps.reg.SetMultiStringValue(HKEY_CURRENT_USER, key, "values", multiStringValue);
+            ret = tps.reg.SetMultiStringValue(HKEY_CURRENT_USER, key, "values", multiStringValue);
+            this.Expect(ret == 0 && tps.reg.GetMultiStringValue(HKEY_CURRENT_USER, key, "values"), "Set&Get multiple string values");
+            tps.reg.DeleteKey(HKEY_CURRENT_USER, rootKey);
         }
     };
 }());
