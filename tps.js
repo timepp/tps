@@ -43,6 +43,25 @@ String.prototype.icaseEqual = function (str) {
     return this.toLowerCase() == str.toLowerCase();
 };
 
+if (!String.prototype.format) {
+    String.prototype.format = function () {
+        var args = arguments;
+        return this.replace(/{(\d+)}/g, function (match, number) {
+            return typeof args[number] != 'undefined'
+              ? args[number]
+              : match
+            ;
+        });
+    };
+}
+
+String.prototype.beginWithOneOf = function (arr) {
+    for (var i in arr) {
+        if (this.toLowerCase().indexOf(arr[i].toLowerCase()) >= 0) return true;
+    }
+    return false;
+},
+
 (function () {
 
     var ForReading = 1, ForWriting = 2;
