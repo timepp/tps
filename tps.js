@@ -285,6 +285,10 @@ String.prototype.beginWithOneOf = function (arr) {
     };
 
     tps.sys = {
+        IsAmd64: function () {
+            var path = shell.ExpandEnvironmentStrings("%ProgramFiles(x86)%");
+            return fso.FolderExists(path);
+        },
         HasFullPrivilege: function () {
             try {
                 var value = shell.RegRead("HKEY_USERS\\S-1-5-19\\");
