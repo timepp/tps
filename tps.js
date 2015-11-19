@@ -753,7 +753,17 @@ String.prototype.beginWithOneOf = function (arr) {
                 if (fso.FolderExists(lst[i])) return lst[i];
             }
             return null;
-        }
+        },
+	EnsureDirectoryExist: function (dir) {
+		var pos = 0;
+		    while (pos != -1) {
+		        pos = dir.indexOf("\\", pos + 1);
+		        var path = (pos == -1) ? dir : dir.substr(0, pos);
+		        try {
+		            fso.CreateFolder(path);
+		        } catch (e) {  }
+		    }
+		}
     };
     tps.log = {
         devices: [],
