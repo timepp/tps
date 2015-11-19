@@ -591,6 +591,9 @@ String.prototype.beginWithOneOf = function (arr) {
                 return '<span class="' + className + '">' + tps.ui.PlainTextToHTML(text) + '</span>';
             else
                 return '<span>' + tps.ui.PlainTextToHTML(text) + '</span>';
+        },
+        DisableContextMenu: function (obj) {
+            obj.oncontextmenu = function () { return false; };
         }
     };
 
