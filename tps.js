@@ -294,7 +294,7 @@ if (typeof String.prototype.endsWith !== 'function') {
             }
             return true;
         },
-        RestartHTA: function (cmdline, requestAdmin, escapeWOW64) {
+        RestartHTA: function (requestAdmin, escapeWOW64) {
             var mshta = "mshta.exe";
             var verb = "open";
             var needRestart = false;
@@ -313,7 +313,7 @@ if (typeof String.prototype.endsWith !== 'function') {
                 }
             }
             if (needRestart) {
-                shellapp.ShellExecute(mshta, cmdline, "", verb, 1);
+                shellapp.ShellExecute(mshta, tps.sys.GetScriptPath(), "", verb, 1);
                 window.close();
                 body.onload = null;
                 return true;
