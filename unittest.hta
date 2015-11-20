@@ -1,92 +1,100 @@
-﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-	<head>
-		<title>TPS测试</title>
-		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-		<meta http-equiv="MSThemeCompatible" content="Yes">
-		<script type="text/javascript" src="tps.js"></script>
-		<hta:application id="HTA" icon="mobsync.exe" windowstate="normal" />
-		<style type="text/css">
-			table {
-				width:100%;
-				border:2px solid darkgray;
-				border-collapse:collapse;
-			}
-			td {
-				border:1px solid darkgray;
-			}
-			.tblhdr {
-				filter:progid:DXImageTransform.Microsoft.gradient(startcolorstr=orange,endcolorstr=white,gradientType=1);
-				color:white;
-			}
-			.trok {
-				
-                background-color:lime;
-			}
-			.trfail {
-				
-                background-color:red;
-			}
-		</style>
-		<script language="javascript">
+﻿<!doctype html>
+<html>
+<head>
+    <title>TPS测试</title>
+    <meta charset="utf-8">
+    <meta http-equiv="MSThemeCompatible" content="Yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <script type="text/javascript" src="tps.js"></script>
+    <hta:application id="HTA" icon="mobsync.exe" windowstate="normal" />
+    <style type="text/css">
+        body {
+            font-family: monospace;
+        }
+        table {
+            width: 100%;
+            border: 2px solid darkgray;
+            border-collapse: collapse;
+        }
 
-			function $(x) {
-				return document.getElementById(x);
-			}
-			function Text(str, cls) {
-				var span = document.createElement("span");
-				if (cls) span.className = cls;
-				span.appendChild(document.createTextNode(str));
-				return span;
-			}
-			function NewTD(tr, cls) {
-			    var td = tr.insertCell(-1);
-			    if (cls) td.className = cls;
-			    return td;
-			}
+        td {
+            border: 1px solid darkgray;
+        }
 
-			var ro = {
-				NewSuite: function (text) {
-					var tr = this.tbl.insertRow(-1);
-					var td = tr.insertCell(-1);
-					td.colSpan = 2;
-					td.className = "tblhdr";
-					td.appendChild(Text(text));
-				},
-				OnSuccess: function (text) {
-					var tr = this.tbl.insertRow(-1);
-					NewTD(tr, "").appendChild(Text(text, "tn"));
-					NewTD(tr, "trok").appendChild(Text("OK"));
-				},
-				OnFailure: function (text) {
-					var tr = this.tbl.insertRow(-1);
-					NewTD(tr, "").appendChild(Text(text, "tn"));
-					NewTD(tr, "trfail").appendChild(Text("FAIL"));
-				},
-				tbl: null,
-				resultarea: null
-			};
+        .tblhdr {
+            background-image:linear-gradient(to right, purple, white);
+            color: white;
+        }
 
-			function Init() {
-			    ro.resultarea = $("testresult");
-				StartTest();
-			}
-			function StartTest() {
-			    ro.resultarea.innerHTML = "";
-			    ro.tbl = document.createElement("table");
-			    ro.resultarea.appendChild(ro.tbl);
-				tps.unittest.ResultOutput = ro;
-				tps.unittest.RunSelfTest();
-			}
-			function Restart(requestAdmin, escapeWOW64) {
-			    tps.sys.RestartHTA(HTA.commandLine, requestAdmin, escapeWOW64);
-			}
+        .trok {
+            background-color: lime;
+        }
 
-		</script>
-	</head>
-	<body onload="Init()" onkeydown="if (event.keyCode == 27) window.close()">
-		<button onclick="Restart(false, true)">restart as 64bit</button>&nbsp;&nbsp;<button onclick="Restart(true, false)">restart as admin</button>
-		<hr />
-		<div id="testresult"></div>
-	</body>
+        .trfail {
+            background-color: red;
+        }
+    </style>
+    <script language="javascript">
+
+        function $(x) {
+            return document.getElementById(x);
+        }
+        function Text(str, cls) {
+            var span = document.createElement("span");
+            if (cls) span.className = cls;
+            span.appendChild(document.createTextNode(str));
+            return span;
+        }
+        function NewTD(tr, cls) {
+            var td = tr.insertCell(-1);
+            if (cls) td.className = cls;
+            return td;
+        }
+
+        var ro = {
+            NewSuite: function (text) {
+                var tr = this.tbl.insertRow(-1);
+                var td = tr.insertCell(-1);
+                td.colSpan = 2;
+                td.className = "tblhdr";
+                td.appendChild(Text(text));
+            },
+            OnSuccess: function (text) {
+                var tr = this.tbl.insertRow(-1);
+                NewTD(tr, "").appendChild(Text(text, "tn"));
+                NewTD(tr, "trok").appendChild(Text("OK"));
+            },
+            OnFailure: function (text) {
+                var tr = this.tbl.insertRow(-1);
+                NewTD(tr, "").appendChild(Text(text, "tn"));
+                NewTD(tr, "trfail").appendChild(Text("FAIL"));
+            },
+            tbl: null,
+            resultarea: null
+        };
+
+        function Init() {
+            ro.resultarea = $("testresult");
+            StartTest();
+        }
+        function StartTest() {
+            ro.resultarea.innerHTML = "";
+            ro.tbl = document.createElement("table");
+            ro.resultarea.appendChild(ro.tbl);
+            tps.unittest.ResultOutput = ro;
+            tps.unittest.RunSelfTest();
+        }
+        function Restart(requestAdmin, escapeWOW64) {
+            tps.sys.RestartHTA(HTA.commandLine, requestAdmin, escapeWOW64);
+        }
+
+    </script>
+</head>
+<body onload="Init()" onkeydown="if (event.keyCode == 27) window.close()">
+    <button onclick="Restart(false, true)">restart as 64bit</button>&nbsp;&nbsp;
+    <button onclick="Restart(true, false)">restart as admin</button>
+    <hr />
+    <div id="testresult"></div>
+</body>
 </html>
