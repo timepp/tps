@@ -70,7 +70,7 @@ if (typeof String.prototype.startsWith !== 'function') {
         }
 
         while (i--) {
-            if (this[i] !== b[i]) {
+            if (this.charAt(i) != b[i]) {
                 return false;
             }
         }
@@ -335,6 +335,12 @@ if (typeof String.prototype.endsWith !== 'function') {
         GetScriptDir: function () {
             return tps.file.GetDir(tps.sys.GetScriptPath());
         },
+        GetSystemEnv: function (vname) {
+            // TODO: query registry
+            // User Variables: HKEY_CURRENT_USER\Environment
+            // System Variables: HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment
+            return tps.sys.GetEnv(vname);
+        },
         SetSystemEnv: function (vname, val) {
             var cmdline = 'setx "{0}" "{1}" /M'.format(vname, val);
             var result = tps.sys.RunCommandAndGetResult(cmdline);
@@ -481,8 +487,8 @@ if (typeof String.prototype.endsWith !== 'function') {
             var lines = result.output.split("\n");
             var values = [];
             for (var i in lines) {
-                var m = /\s*(\S+)\s+(\S+)\s*(\S*)/.exec(lines[i]);
-                if (m && m[1] != "(Default)" && m[2].startsWith("REG_"))
+                var m = /^(.*?)\s+(REG_\S+)\s+(.*)$/.exec(lines[i].trim());
+                if (m && m[1] != "(Default)")
                     values.push({ name: m[1], type: m[2], valstr: m[3] });
             }
             return values;
@@ -779,6 +785,21 @@ if (typeof String.prototype.endsWith !== 'function') {
         },
         Unindent: function () {
             this.indent--;
+        },
+        AddHtmlElementDevice: function(element) {
+            var logDevice = {
+                WriteLog: function (level, tag, dt, indent, text) {
+                    var oLine = document.createElement("span");
+                    var timestring = tps.util.FormatDateString(dt, "H:M:S.I");
+                    var finaltext = timestring + " " + "".lpad(" ", indent * 2) + text;
+                    oLine.appendChild(document.createTextNode(finaltext));
+                    oLine.appendChild(document.createElement("br"));
+                    oLine.className = "log_" + level;
+                    element.appendChild(oLine);
+                    element.scrollTop += 1000000;
+                }
+            };
+            tps.log.devices.push(logDevice);
         }
     };
     tps.unittest = {
