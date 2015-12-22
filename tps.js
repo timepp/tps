@@ -335,17 +335,33 @@ if (typeof String.prototype.endsWith !== 'function') {
         GetScriptDir: function () {
             return tps.file.GetDir(tps.sys.GetScriptPath());
         },
+        NotifySettingChange: function(name) {
+            return shell.Run("calldll.exe user32.dll SendNotifyMessageW int:0xffff int:0x1A int:0 wstr:" + name, 0, true);
+        },
+
+        systemEnvRegPath: "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+        userEnvRegPath: "HKCU\\Environment",
         GetSystemEnv: function (vname) {
-            // TODO: query registry
-            // User Variables: HKEY_CURRENT_USER\Environment
-            // System Variables: HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment
-            return tps.sys.GetEnv(vname);
+            return tps.reg.GetStringValue(tps.sys.systemEnvRegPath, vname);
         },
         SetSystemEnv: function (vname, val) {
-            var cmdline = 'setx "{0}" "{1}" /M'.format(vname, val);
-            var result = tps.sys.RunCommandAndGetResult(cmdline);
-            if (result.retval != 0) throw result.errors;
+            tps.reg.SetStringValue(tps.sys.systemEnvRegPath, vname, val);
+            tps.sys.NotifySettingChange("Environment");
         },
+        DeleteSystemEnv: function (vname) {
+            tps.reg.DeleteValue(tps.sys.systemEnvRegPath, vname);
+        },
+        GetUserEnv: function (vname) {
+            return tps.reg.GetStringValue(tps.sys.userEnvRegPath, vname);
+        },
+        SetUserEnv: function (vname, val) {
+            tps.reg.SetStringValue(tps.sys.userEnvRegPath, vname, val);
+            tps.sys.NotifySettingChange("Environment");
+        },
+        DeleteUserEnv: function (vname) {
+            tps.reg.DeleteValue(tps.sys.userEnvRegPath, vname);
+        },
+        
         SetEnv: function (name, val) {
             if (val == null) {
                 env.Remove(name);
@@ -359,7 +375,7 @@ if (typeof String.prototype.endsWith !== 'function') {
         },
         InPath: function (path) {
             var paths = tps.sys.GetSystemEnv("path").toLowerCase().split(";");
-            return tps.util.IndexOf(paths, path) != -1;
+            return tps.util.IndexOf(paths, path.toLowerCase()) != -1;
         },
         AddToPath: function (path) {
             if (!tps.sys.InPath(path)) {
@@ -458,6 +474,11 @@ if (typeof String.prototype.endsWith !== 'function') {
         },
         DeleteKey: function (key) {
             var cmdline = 'reg delete "{0}" /f'.format(key);
+            var result = tps.sys.RunCommandAndGetResult(cmdline);
+            if (result.retval) throw result.errors;
+        },
+        DeleteValue: function (key, val) {
+            var cmdline = 'reg delete "{0}" /v "{1}" /f'.format(key, val);
             var result = tps.sys.RunCommandAndGetResult(cmdline);
             if (result.retval) throw result.errors;
         },
