@@ -428,10 +428,10 @@ if (typeof String.prototype.endsWith !== 'function') {
             if (result.retval) throw result.errors;
         },
         GetStringValue: function (key, valname) {
-            return tps.reg.GetGeneralValueAsString(key, valname, /REG_SZ\s+(.*)$/gm);
+            return tps.reg.GetGeneralValueAsString(key, valname, /REG_SZ\s+([^\r\n]*)/gm);
         },
         GetMultiStringValue: function (key, valname) {
-            return tps.reg.GetGeneralValueAsString(key, valname, /REG_MULTI_SZ\s+(.*)$/gm).split("\\0");
+            return tps.reg.GetGeneralValueAsString(key, valname, /REG_MULTI_SZ\s+([^\r\n]*)/gm).split("\\0");
         },
         GetIntValue: function (key, valname) {
             return parseInt(tps.reg.GetGeneralValueAsString(key, valname, /REG_DWORD\s+0[xX](\S+)/gm), 16);
