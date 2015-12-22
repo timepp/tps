@@ -412,10 +412,10 @@ if (typeof String.prototype.endsWith !== 'function') {
             if (result.retval) throw result.errors;
         },
         GetStringValue: function (key, valname) {
-            return tps.reg.GetGeneralValueAsString(key, valname, /REG_SZ\s+(\S+)/gm);
+            return tps.reg.GetGeneralValueAsString(key, valname, /REG_SZ\s+(.*)$/gm);
         },
         GetMultiStringValue: function (key, valname) {
-            return tps.reg.GetGeneralValueAsString(key, valname, /REG_MULTI_SZ\s+(\S+)/gm).split("\\0");
+            return tps.reg.GetGeneralValueAsString(key, valname, /REG_MULTI_SZ\s+(.*)$/gm).split("\\0");
         },
         GetIntValue: function (key, valname) {
             return parseInt(tps.reg.GetGeneralValueAsString(key, valname, /REG_DWORD\s+0[xX](\S+)/gm), 16);
@@ -852,9 +852,9 @@ if (typeof String.prototype.endsWith !== 'function') {
             var existed = tps.reg.KeyExisis(key);
             tps.reg.DeleteKey(rootkey);
             this.Expect(existed && !tps.reg.KeyExisis(rootkey), "Reg rootkey creation/deletion");
-            tps.reg.SetStringValue(key, "str", "bbb");
-            this.Expect(tps.reg.GetStringValue(key, "str") == "bbb", "get/set REG_SZ");
-            var multiStringValue = ["12345", "abcde", "xxxyyy"];
+            tps.reg.SetStringValue(key, "str", "bbb aaa");
+            this.Expect(tps.reg.GetStringValue(key, "str") == "bbb aaa", "get/set REG_SZ");
+            var multiStringValue = ["12345", "abc  de", "xxxyyy"];
             tps.reg.SetMultiStringValue(key, "multistr", multiStringValue);
             tps.reg.SetMultiStringValue(key, "multistr", multiStringValue); // no exception when overwrite
             var ret = tps.reg.GetMultiStringValue(key, "multistr");
