@@ -341,21 +341,31 @@ if (typeof String.prototype.endsWith !== 'function') {
 
         systemEnvRegPath: "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
         userEnvRegPath: "HKCU\\Environment",
+        // Note: It seems that the original type of 'path' is "REG_EXPAND_SZ", but some software may change it to "REG_SZ"
+        //       We need to handle type when read, and use official one when save
         GetSystemEnv: function (vname) {
-            return tps.reg.GetStringValue(tps.sys.systemEnvRegPath, vname);
+            try {
+                return tps.reg.GetExpandStringValue(tps.sys.systemEnvRegPath, vname);
+            } catch (e) {
+                return tps.reg.GetStringValue(tps.sys.systemEnvRegPath, vname);
+            }
         },
         SetSystemEnv: function (vname, val) {
-            tps.reg.SetStringValue(tps.sys.systemEnvRegPath, vname, val);
+            tps.reg.SetExpandStringValue(tps.sys.systemEnvRegPath, vname, val);
             tps.sys.NotifySettingChange("Environment");
         },
         DeleteSystemEnv: function (vname) {
             tps.reg.DeleteValue(tps.sys.systemEnvRegPath, vname);
         },
         GetUserEnv: function (vname) {
-            return tps.reg.GetStringValue(tps.sys.userEnvRegPath, vname);
+            try {
+                return tps.reg.GetExpandStringValue(tps.sys.userEnvRegPath, vname);
+            } catch (e) {
+                return tps.reg.GetStringValue(tps.sys.userEnvRegPath, vname);
+            }
         },
         SetUserEnv: function (vname, val) {
-            tps.reg.SetStringValue(tps.sys.userEnvRegPath, vname, val);
+            tps.reg.SetExpandStringValue(tps.sys.userEnvRegPath, vname, val);
             tps.sys.NotifySettingChange("Environment");
         },
         DeleteUserEnv: function (vname) {
@@ -415,20 +425,31 @@ if (typeof String.prototype.endsWith !== 'function') {
 
     tps.reg = {
         GetGeneralValueAsString: function (key, valname, matcher) {
-            var cmdline = 'reg query "{0}" /v "{1}"'.format(key, valname);
+            var vpart = valname ? "/v " + tps.util.DoubleQuote(valname) : '/ve';
+            var cmdline = 'reg query "{0}" {1}'.format(key, vpart);
             var result = tps.sys.RunCommandAndGetResult(cmdline);
             if (result.retval) throw result.errors;
             var m = matcher.exec(result.output);
-            if (!m || !m[1]) throw "reg output parse failed";
+            if (!m || !m[1]) {
+                throw "reg output parse failed";
+            }
             return m[1];
         },
         SetGeneralValueByString: function (key, valname, type, val) {
-            var cmdline = 'reg add "{0}" /v "{1}" /t {2} /d "{3}" /f'.format(key, valname, type, val);
+            var vpart = valname ? "/v " + tps.util.DoubleQuote(valname) : '/ve';
+            // escape all " in val, see http://stackoverflow.com/questions/562038/escaping-double-quotes-in-batch-script
+            if (type == "REG_SZ" || type == "REG_MULTI_SZ" || type == "REG_EXPAND_SZ") {
+                val = val.replace(/"/g, "\\\"");
+            }
+            var cmdline = 'reg add "{0}" {1} /t {2} /d "{3}" /f'.format(key, vpart, type, val);
             var result = tps.sys.RunCommandAndGetResult(cmdline);
             if (result.retval) throw result.errors;
         },
         GetStringValue: function (key, valname) {
             return tps.reg.GetGeneralValueAsString(key, valname, /REG_SZ\s+([^\r\n]*)/gm);
+        },
+        GetExpandStringValue: function (key, valname) {
+            return tps.reg.GetGeneralValueAsString(key, valname, /REG_EXPAND_SZ\s+([^\r\n]*)/gm);
         },
         GetMultiStringValue: function (key, valname) {
             return tps.reg.GetGeneralValueAsString(key, valname, /REG_MULTI_SZ\s+([^\r\n]*)/gm).split("\\0");
@@ -441,6 +462,9 @@ if (typeof String.prototype.endsWith !== 'function') {
         },
         SetStringValue: function (key, valname, val) {
             tps.reg.SetGeneralValueByString(key, valname, "REG_SZ", val);
+        },
+        SetExpandStringValue: function (key, valname, val) {
+            tps.reg.SetGeneralValueByString(key, valname, "REG_EXPAND_SZ", val);
         },
         SetMultiStringValue: function (key, valname, val) {
             tps.reg.SetGeneralValueByString(key, valname, "REG_MULTI_SZ", val.join("\\0"));
