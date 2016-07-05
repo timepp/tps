@@ -10,11 +10,13 @@ if (!this.tps) {
 }
 
 // well-known windows object
-var fso = new ActiveXObject("Scripting.FileSystemObject");
-var shell = new ActiveXObject("WScript.Shell");
-var net = new ActiveXObject("WScript.Network");
-var shellapp = new ActiveXObject("Shell.Application");
-var env = shell.Environment("Process");
+try {
+    var fso = new ActiveXObject("Scripting.FileSystemObject");
+    var shell = new ActiveXObject("WScript.Shell");
+    var net = new ActiveXObject("WScript.Network");
+    var shellapp = new ActiveXObject("Shell.Application");
+    var env = shell.Environment("Process");
+} catch (e) { }
 
 var HKEY_LOCAL_MACHINE = 0x80000002;
 var HKEY_CURRENT_USER = 0x80000001;
@@ -62,32 +64,47 @@ if (typeof String.prototype.beginWithOneOf !== 'function') {
         return false;
     };
 }
-if (typeof String.prototype.startsWith !== 'function') {
-    String.prototype.startsWith = function (b) {
-        var i = b.length;
-        if (this.length < i) {
-            return false;
-        }
 
-        while (i--) {
-            if (this.charAt(i) != b[i]) {
-                return false;
-            }
-        }
-
-        return true;
+if (!String.prototype.startsWith) {
+    String.prototype.startsWith = function (searchString, position) {
+        position = position || 0;
+        return this.substr(position, searchString.length) === searchString;
     };
 }
+
+if (!String.prototype.endsWith) {
+    String.prototype.endsWith = function (searchString, position) {
+        var subjectString = this.toString();
+        if (typeof position !== 'number' || !isFinite(position) || Math.floor(position) !== position || position > subjectString.length) {
+            position = subjectString.length;
+        }
+        position -= searchString.length;
+        var lastIndex = subjectString.indexOf(searchString, position);
+        return lastIndex !== -1 && lastIndex === position;
+    };
+}
+
 if (typeof String.prototype.endsWith !== 'function') {
     String.prototype.endsWith = function (suffix) {
         return this.indexOf(suffix, this.length - suffix.length) !== -1;
     };
 }
-
+if (typeof String.prototype.splitHead !== 'function') {
+    String.prototype.splitHead = function (splitter) {
+        var pos = this.indexOf(splitter);
+        return pos == -1 ? null : [this.substr(0, pos), this.substr(pos + splitter.length)];
+    };
+}
+if (typeof String.prototype.splitTail !== 'function') {
+    String.prototype.splitTail = function (splitter) {
+        var pos = this.lastIndexOf(splitter);
+        return pos == -1 ? null : [this.substr(0, pos), this.substr(pos + splitter.length)];
+    };
+}
 
 (function () {
 
-    var ForReading = 1, ForWriting = 2;
+    var ForReading = 1, ForWriting = 2, ForAppending = 8;
 
     // tps.util ============================================================================================================================
     // tps.util ============================================================================================================================
@@ -103,11 +120,41 @@ if (typeof String.prototype.endsWith !== 'function') {
             return '"' + str + '"';
         },
         RemoveQuote: function (str) {
-            return str.replace(/^(["'])(.*)\1$/, "$2");
+            if (str.length >= 2) {
+                var a = str.charAt(0);
+                var b = str.charAt(str.length - 1);
+                if (a == '"' && b == '"' ||
+                    a == '\'' && b == '\'' ||
+                    a == '{' && b == '}' ||
+                    a == '[' && b == ']' ||
+                    a == '(' && b == ')')
+                {
+                    return str.substr(1, str.length - 2);
+                }
+            }
+            return str;
         },
-        MergeProperty: function (o, p) {
-            for (var key in p) {
-                o[key] = p[key];
+        MergeProperty: function (target, source) {
+            for (var key in source) {
+                if (key in target &&
+                    target[key] !== null && typeof target[key] === "object" &&
+                    source[key] !== null && typeof source[key] === "object") {
+                    tps.util.MergeProperty(target[key], source[key]);
+                } else {
+                    target[key] = source[key];
+                }
+            }
+        },
+        UpdateProperty: function (target, source) {
+            for (var key in target) {
+                if (key in source) {
+                    if (target[key] !== null && typeof target[key] === "object" &&
+                        source[key] !== null && typeof source[key] === "object") {
+                        tps.util.UpdateProperty(target[key], source[key]);
+                    } else {
+                        target[key] = source[key];
+                    }
+                }
             }
         },
         SubObject: function () {
@@ -294,18 +341,22 @@ if (typeof String.prototype.endsWith !== 'function') {
             }
             return true;
         },
-        RestartHTA: function (requestAdmin, escapeWOW64) {
+        processOption: {
+            requestAdmin: 1,
+            escapeWOW64: 2
+        },
+        RestartHTA: function (flags) {
             var mshta = "mshta.exe";
             var verb = "open";
             var needRestart = false;
-            if (escapeWOW64) {
+            if (flags & this.processOption.escapeWOW64) {
                 var sysnativePath = shell.ExpandEnvironmentStrings("%windir%\\sysnative");
                 if (fso.FolderExists(sysnativePath)) {
                     mshta = sysnativePath + "\\mshta.exe";
                     needRestart = true;
                 }
             }
-            if (requestAdmin) {
+            if (flags & this.processOption.requestAdmin) {
                 if (!tps.sys.HasFullPrivilege()) {
                     verb = "runas";
                     mshta = "mshta.exe";
@@ -339,63 +390,74 @@ if (typeof String.prototype.endsWith !== 'function') {
             return shell.Run("calldll.exe user32.dll SendNotifyMessageW int:0xffff int:0x1A int:0 wstr:" + name, 0, true);
         },
 
-        systemEnvRegPath: "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
-        userEnvRegPath: "HKCU\\Environment",
-        // Note: It seems that the original type of 'path' is "REG_EXPAND_SZ", but some software may change it to "REG_SZ"
-        //       We need to handle type when read, and use official one when save
-        GetSystemEnv: function (vname) {
-            try {
-                return tps.reg.GetExpandStringValue(tps.sys.systemEnvRegPath, vname);
-            } catch (e) {
-                return tps.reg.GetStringValue(tps.sys.systemEnvRegPath, vname);
+        systemEnv: {
+            regPath: "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment",
+            get: function (name) {
+                try {
+                    return tps.reg.GetExpandStringValue(this.regPath, name);
+                } catch (e) {
+                    return tps.reg.GetStringValue(this.regPath, name);
+                }
+            },
+            set: function (name, val) {
+                tps.reg.SetExpandStringValue(this.regPath, name, val);
+                tps.sys.NotifySettingChange("Environment");
+            },
+            remove: function (name) {
+                tps.reg.DeleteValue(this.regPath, name);
             }
         },
-        SetSystemEnv: function (vname, val) {
-            tps.reg.SetExpandStringValue(tps.sys.systemEnvRegPath, vname, val);
-            tps.sys.NotifySettingChange("Environment");
-        },
-        DeleteSystemEnv: function (vname) {
-            tps.reg.DeleteValue(tps.sys.systemEnvRegPath, vname);
-        },
-        GetUserEnv: function (vname) {
-            try {
-                return tps.reg.GetExpandStringValue(tps.sys.userEnvRegPath, vname);
-            } catch (e) {
-                return tps.reg.GetStringValue(tps.sys.userEnvRegPath, vname);
+
+        userEnv: {
+            regPath: "HKCU\\Environment",
+            get: function (name) {
+                try {
+                    return tps.reg.GetExpandStringValue(this.regPath, name);
+                } catch (e) {
+                    return tps.reg.GetStringValue(this.regPath, name);
+                }
+            },
+            set: function (name, val) {
+                tps.reg.SetExpandStringValue(this.regPath, name, val);
+                tps.sys.NotifySettingChange("Environment");
+            },
+            remove: function (name) {
+                tps.reg.DeleteValue(this.regPath, name);
             }
         },
-        SetUserEnv: function (vname, val) {
-            tps.reg.SetExpandStringValue(tps.sys.userEnvRegPath, vname, val);
-            tps.sys.NotifySettingChange("Environment");
-        },
-        DeleteUserEnv: function (vname) {
-            tps.reg.DeleteValue(tps.sys.userEnvRegPath, vname);
-        },
-        
-        SetEnv: function (name, val) {
-            if (val == null) {
-                env.Remove(name);
+
+        processEnv: {
+            set: function (name, val) {
+                if (val == null) {
+                    env.Remove(name);
+                }
+                else {
+                    env.Item(name) = val;
+                }
+            },
+            get: function (name) {
+                return env.Item(name);
+            },
+            remove: function (name) {
+                // not implemented.
             }
-            else {
-                env.Item(name) = val;
-            }
         },
-        GetEnv: function (name) {
-            return env.Item(name);
-        },
-        InPath: function (path) {
-            var paths = tps.sys.GetSystemEnv("path").toLowerCase().split(";");
+
+        InPath: function (envobj, path) {
+            var paths = envobj.get("path").toLowerCase().split(";");
             return tps.util.IndexOf(paths, path.toLowerCase()) != -1;
         },
-        AddToPath: function (path) {
-            if (!tps.sys.InPath(path)) {
-                var pathval = tps.sys.GetSystemEnv("path");
+
+        AddToPath: function (envobj, path) {
+            if (!tps.sys.InPath(envobj, path)) {
+                var pathval = envobj.get("path");
                 var newpathval = pathval;
                 if (newpathval.slice(-1) != ";") newpathval += ";";
                 newpathval += path;
-                tps.sys.SetSystemEnv("path", newpathval);
+                envobj.set("path", newpathval);
             }
         },
+
         RunCommandAndGetResult: function (cmdline, of, ef) {
             var outfile = of ? of : shell.ExpandEnvironmentStrings("%temp%") + "\\" + fso.GetTempName();
             var errfile = ef ? ef : shell.ExpandEnvironmentStrings("%temp%") + "\\" + fso.GetTempName();
@@ -458,8 +520,31 @@ if (typeof String.prototype.endsWith !== 'function') {
             return parseInt(tps.reg.GetGeneralValueAsString(key, valname, /REG_DWORD\s+0[xX](\S+)/gm), 16);
         },
         GetBoolValue: function (key, valname) {
-            return GetIntValue(key, valname) > 0;
+            return tps.reg.GetIntValue(key, valname) > 0;
         },
+
+        GetStringValueFallback: function (key, valname, fallbackval) {
+            try {
+                return this.GetStringValue(key, valname);
+            } catch (e) {
+                return fallbackval;
+            }
+        },
+        GetIntValueFallback: function (key, valname, fallbackval) {
+            try {
+                return this.GetIntValue(key, valname);
+            } catch (e) {
+                return fallbackval;
+            }
+        },
+        GetBoolValueFallback: function (key, valname, fallbackval) {
+            try {
+                return this.GetBoolValue(key, valname);
+            } catch (e) {
+                return fallbackval;
+            }
+        },
+
         SetStringValue: function (key, valname, val) {
             tps.reg.SetGeneralValueByString(key, valname, "REG_SZ", val);
         },
@@ -626,6 +711,12 @@ if (typeof String.prototype.endsWith !== 'function') {
         },
         DisableContextMenu: function (obj) {
             obj.oncontextmenu = function () { return false; };
+        },
+        span: function (text, className) {
+            var oSpan = document.createElement("span");
+            oSpan.className = className;
+            oSpan.appendChild(document.createTextNode(text));
+            return oSpan;
         }
     };
 
@@ -688,14 +779,15 @@ if (typeof String.prototype.endsWith !== 'function') {
             } catch (e) {
             }
 
-            try {
-                var ofile = fso.OpenTextFile(filename, ForWriting, true);
-                ofile.Write(text);
-                ofile.Close();
-            }
-            catch (e) {
-                alert(e.message);
-            }
+            var ofile = fso.OpenTextFile(filename, ForWriting, true);
+            ofile.Write(text);
+            ofile.Close();
+        },
+        AppendTextFileSimple: function (text, filename) {
+            tps.file.EnsureDirectoryExist(tps.file.GetDir(filename));
+            var ofile = fso.OpenTextFile(filename, ForAppending, true);
+            ofile.Write(text);
+            ofile.Close();
         },
         ReadBinaryFile: function (filename, pos, len) {
             var stream = new ActiveXObject("ADODB.Stream");
@@ -834,14 +926,24 @@ if (typeof String.prototype.endsWith !== 'function') {
         AddHtmlElementDevice: function(element) {
             var logDevice = {
                 WriteLog: function (level, tag, dt, indent, text) {
-                    var oLine = document.createElement("span");
                     var timestring = tps.util.FormatDateString(dt, "H:M:S.I");
-                    var finaltext = timestring + " " + "".lpad(" ", indent * 2) + text;
-                    oLine.appendChild(document.createTextNode(finaltext));
-                    oLine.appendChild(document.createElement("br"));
-                    oLine.className = "log_" + level;
-                    element.appendChild(oLine);
+                    element.appendChild(tps.ui.span(timestring, "log_time"));
+                    element.appendChild(tps.ui.span("".lpad(" ", indent * 2) + text, "log_" + level));
+                    element.appendChild(document.createElement("br"));
                     element.scrollTop += 1000000;
+                }
+            };
+            tps.log.devices.push(logDevice);
+        },
+        AddFileDevice: function (filename) {
+            var logDevice = {
+                WriteLog: function (level, tag, dt, indent, text) {
+                    var timestring = tps.util.FormatDateString(dt, "Y-m-d H:M:S.I");
+                    var line = timestring + " " + "".lpad(" ", indent * 2) + text;
+                    if (!line.endsWith("\r\n")) {
+                        line += "\r\n";
+                    }
+                    tps.file.AppendTextFileSimple(line, filename);
                 }
             };
             tps.log.devices.push(logDevice);
